@@ -39,6 +39,28 @@ function doGet(e) {
     if (action === 'getRows') return jsonOut(getRows(p.corpus || ''));
     if (action === 'ping')    return ContentService.createTextOutput('OK').setMimeType(ContentService.MimeType.TEXT);
 
+    if (action === 'debugRows') {
+      var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+      var sheets = ss.getSheets().map(function(s){ return s.getName(); });
+      var sheet = ss.getSheetByName(SHEET_NAME);
+      if (!sheet) return jsonOut({error: 'Лист не найден', sheets: sheets});
+      var lastRow = sheet.getLastRow();
+      var sample = lastRow > 1 ? sheet.getRange(2, 1, Math.min(3, lastRow - 1), 7).getValues() : [];
+      var passed = 0, total = 0;
+      if (lastRow > 1) {
+        var vals = sheet.getRange(2, 1, lastRow - 1, 7).getValues();
+        for (var i = 0; i < vals.length; i++) {
+          total++;
+          var r = vals[i];
+          var corpus = String(r[1]).trim();
+          var floor  = String(r[2]).trim();
+          var work   = String(r[5]).trim();
+          if (corpus && floor && work) passed++;
+        }
+      }
+      return jsonOut({sheetName: SHEET_NAME, lastRow: lastRow, totalRows: total, passedFilter: passed, sheets: sheets, sample: sample});
+    }
+
     if (action === 'getContractors') {
       var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
       var sheet = ss.getSheetByName('Подрядчики');

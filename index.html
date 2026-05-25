@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>СБ3 · Шахматка</title>
+<title>СБ5 · Шахматка</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -434,8 +434,8 @@ td.cell.s-empty .c-bar-fill{background:#94a3b8;}
 <!-- TOPBAR -->
 <div class="topbar">
   <div class="logo">
-    <span class="logo-badge">СБ3</span>
-    Шахматка факт
+    <span class="logo-badge">СБ5</span>
+    Шахматка
   </div>
   <div class="sep"></div>
   <button class="btn" onclick="reload()" title="Обновить">↻</button>
@@ -797,7 +797,7 @@ window.onload=function(){
   applyZoom();
   var a=localStorage.getItem('sb3_author')||'';
   if(a){AUTHOR=a;var ai=document.getElementById('author-inp');if(ai)ai.value=a;}
-  BASE='https://script.google.com/macros/s/AKfycbwtCbQ7GYHZVoeBgoSsLkcKUtO90hXgi87snohc53UK60HJLrU7wRp9psMCm03vpbYC/exec';
+  BASE='https://script.google.com/macros/s/AKfycbxv5QZoWLvGQxrIXpYK9c_GZvrOiNMEtHvDXzQ92EpL5Xvd_8ViBXquAdFef8xibOEp/exec';
   window.addEventListener('beforeunload',function(e){
     if(Object.keys(MOD).length>0){e.preventDefault();e.returnValue='';}
   });
