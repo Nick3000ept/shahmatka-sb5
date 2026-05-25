@@ -10,7 +10,7 @@
 cd "d:/YandexDisk/VS_hub/СБ5_шахматка"
 # 1. Google Apps Script (бэкенд)
 clasp push --force
-clasp deploy --deploymentId AKfycbxEk5colwld9ixqAdTIK2HxLO3C3TgoPKX18ec-1aFYQp68vDlmX28BO7MlWbwrHP4S
+clasp deploy --deploymentId AKfycbwtCbQ7GYHZVoeBgoSsLkcKUtO90hXgi87snohc53UK60HJLrU7wRp9psMCm03vpbYC
 # 2. Git + GitHub Pages
 git add index.html script.gs appsscript.json CLAUDE.md .gitignore
 git commit -m "описание изменений"
@@ -28,7 +28,7 @@ git push
 
 ## Google Apps Script
 - **GAS Script ID**: `15e7iz9E_v2mnIYbeibUZVsowCMuwJ4A-HYoHXSpQeP9WpnsKwquVLFis`
-- **GAS deployment URL**: `https://script.google.com/macros/s/AKfycbxEk5colwld9ixqAdTIK2HxLO3C3TgoPKX18ec-1aFYQp68vDlmX28BO7MlWbwrHP4S/exec`
+- **GAS deployment URL**: `https://script.google.com/macros/s/AKfycbwtCbQ7GYHZVoeBgoSsLkcKUtO90hXgi87snohc53UK60HJLrU7wRp9psMCm03vpbYC/exec`
 - **Google Sheet ID**: `1Vm0W09F1QNvBi3RK0pWjBa2KB19pXXex9kkd9vHq8zk`
 - Лист данных: `Факт`
 - Лист подрядчиков: `Подрядчики`
