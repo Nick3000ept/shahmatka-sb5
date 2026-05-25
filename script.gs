@@ -197,9 +197,9 @@ function doPost(e) {
 
 function getWorkDict() {
   // CacheService: справочник работ кешируется на 2 часа (~20-36 КБ, хорошо укладывается в лимит 100 КБ/ключ)
-  // clearCache() сбрасывает ключ sb3_work_dict при любом сохранении данных
+  // clearCache() сбрасывает ключ sb5_work_dict при любом сохранении данных
   var cache = CacheService.getScriptCache();
-  var cached = cache.get('sb3_work_dict');
+  var cached = cache.get('sb5_work_dict');
   if (cached) {
     try { return JSON.parse(cached); } catch(e) {}
   }
@@ -225,7 +225,7 @@ function getWorkDict() {
     dict[name] = {place: place, lvl1: lvl1, lvl2: lvl2, kp: kp, factNum: factNum};
   });
 
-  try { cache.put('sb3_work_dict', JSON.stringify(dict), 7200); } catch(e) {}
+  try { cache.put('sb5_work_dict', JSON.stringify(dict), 7200); } catch(e) {}
   return dict;
 }
 
@@ -374,7 +374,7 @@ function getStaffing() {
 
 function getCheckLists() {
   var cache = CacheService.getScriptCache();
-  var cached = cache.get('sb3_checklists');
+  var cached = cache.get('sb5_checklists');
   if (cached) {
     try { return JSON.parse(cached); } catch(e) {}
   }
@@ -413,19 +413,19 @@ function getCheckLists() {
     });
   });
   var result = {items: items};
-  try { cache.put('sb3_checklists', JSON.stringify(result), 7200); } catch(e) {}
+  try { cache.put('sb5_checklists', JSON.stringify(result), 7200); } catch(e) {}
   return result;
 }
 
 function clearCache() {
   try {
     var cache = CacheService.getScriptCache();
-    cache.remove('sb3_rows_all');
-    cache.remove('sb3_work_dict');
-    cache.remove('sb3_checklists');
-    cache.remove('sb3_staffing');
+    cache.remove('sb5_rows_all');
+    cache.remove('sb5_work_dict');
+    cache.remove('sb5_checklists');
+    cache.remove('sb5_staffing');
     ['К1','К2','К3','К4','К5','К6','К7','К8','К9','К10','К11','К12'].forEach(function(c) {
-      cache.remove('sb3_rows_' + c);
+      cache.remove('sb5_rows_' + c);
     });
   } catch(e) {}
 }

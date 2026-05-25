@@ -682,8 +682,8 @@ var BASE='', ROWS=[], MOD={};
 var AUTHOR='';
 // ─── РОЛИ ─────────────────────────────────────────────────────────
 var CONTRACTOR=new URLSearchParams(window.location.search).get('contractor')||'';
-var IS_ADMIN=sessionStorage.getItem('sb3_admin')==='1';
-var IS_SK=sessionStorage.getItem('sb3_sk')==='1';
+var IS_ADMIN=sessionStorage.getItem('sb5_admin')==='1';
+var IS_SK=sessionStorage.getItem('sb5_sk')==='1';
 var _pwdCallback=null;
 // Сегодня в миллисекундах (без времени)
 var _t=new Date(); _t.setHours(0,0,0,0);
@@ -691,7 +691,7 @@ var TODAY_MS=_t.getTime();
 
 function saveAuthor(v){
   AUTHOR=v.trim();
-  localStorage.setItem('sb3_author', AUTHOR);
+  localStorage.setItem('sb5_author', AUTHOR);
 }
 var SEL = new Set();   // rowId выбранных
 var CUR = null;        // текущая для одиночного режима
@@ -792,12 +792,12 @@ var CSS2S={'s-done':'СМР окончены','s-started':'СМР начаты',
 
 // ─── INIT ─────────────────────────────────────────────────────────
 window.onload=function(){
-  var z=parseInt(localStorage.getItem('sb3_zoom')||'100');
+  var z=parseInt(localStorage.getItem('sb5_zoom')||'100');
   ZOOM=z;
   applyZoom();
-  var a=localStorage.getItem('sb3_author')||'';
+  var a=localStorage.getItem('sb5_author')||'';
   if(a){AUTHOR=a;var ai=document.getElementById('author-inp');if(ai)ai.value=a;}
-  BASE='https://script.google.com/macros/s/AKfycbze14lESQUpP_0rXevY-keAx2WpDcYrkPi7zJQp7B0qrydfJBhrGq-9pjuliRqiEW9-/exec';
+  BASE='https://script.google.com/macros/s/AKfycbz8UwyUxa-8vxID2FsOS-4KhzRg00LZhFxEmuBeySq7BiZrc_vgtABWfdQOuvaoKePm/exec';
   window.addEventListener('beforeunload',function(e){
     if(Object.keys(MOD).length>0){e.preventDefault();e.returnValue='';}
   });
@@ -827,14 +827,14 @@ var CONTRACTORS=[];
 async function loadContractors(){
   if(!BASE) return;
   // Проверяем кэш
-  var cached=localStorage.getItem('sb3_contractors');
+  var cached=localStorage.getItem('sb5_contractors');
   if(cached){try{CONTRACTORS=JSON.parse(cached);renderContractorChips();}catch(ex){}}
   try{
     var r=await fetch(BASE+'?action=getContractors&t='+Date.now());
     var j=JSON.parse(await r.text());
     if(j.contractors&&j.contractors.length){
       CONTRACTORS=j.contractors;
-      localStorage.setItem('sb3_contractors',JSON.stringify(CONTRACTORS));
+      localStorage.setItem('sb5_contractors',JSON.stringify(CONTRACTORS));
       renderContractorSelect('');
       // Обновляем select в мультибаре
       var sel=document.getElementById('ms-contractor');
@@ -1082,7 +1082,7 @@ function toggleFMod(){
 var PRESETS={};
 var ACTIVE_PRESET=null;
 function loadPresets(){
-  try{PRESETS=JSON.parse(localStorage.getItem('sb3_presets')||'{}');}catch(ex){PRESETS={};}
+  try{PRESETS=JSON.parse(localStorage.getItem('sb5_presets')||'{}');}catch(ex){PRESETS={};}
   renderPresetChips();
 }
 function applyNoFilter(){
@@ -1144,7 +1144,7 @@ function savePreset(){
     kp:FKP,
     statuses:[...FSTATUS]
   };
-  localStorage.setItem('sb3_presets',JSON.stringify(PRESETS));
+  localStorage.setItem('sb5_presets',JSON.stringify(PRESETS));
   renderPresetChips();
   presetCancelClick();
   toast('Пресет «'+name+'» сохранён','ok');
@@ -1200,7 +1200,7 @@ function applyPreset(name){
 }
 function deletePreset(name){
   delete PRESETS[name];
-  localStorage.setItem('sb3_presets',JSON.stringify(PRESETS));
+  localStorage.setItem('sb5_presets',JSON.stringify(PRESETS));
   renderPresetChips();
   toast('Пресет удалён','inf');
 }
@@ -2109,10 +2109,10 @@ async function submitPwd(){
     if(j.ok){
       if(j.role==='sk'){
         IS_SK=true;
-        sessionStorage.setItem('sb3_sk','1');
+        sessionStorage.setItem('sb5_sk','1');
       } else {
         IS_ADMIN=true;
-        sessionStorage.setItem('sb3_admin','1');
+        sessionStorage.setItem('sb5_admin','1');
       }
       applyRoleUI();
       closePwdModal();
