@@ -797,7 +797,7 @@ window.onload=function(){
   applyZoom();
   var a=localStorage.getItem('sb5_author')||'';
   if(a){AUTHOR=a;var ai=document.getElementById('author-inp');if(ai)ai.value=a;}
-  BASE='https://script.google.com/macros/s/AKfycbzvrbcqfCGOiR_Icm4ob9DPfRthZmQ6Jexf3BAps9KxbHzIAbch0J6il3-ag6xla1aX/exec';
+  BASE='https://script.google.com/macros/s/AKfycbx8BmdB0SgrsM20Op2SUrYaj5JKCOgCgujnlZPvsyM-Gg7ELua05QzWVij1n2uZbXEg/exec';
   window.addEventListener('beforeunload',function(e){
     if(Object.keys(MOD).length>0){e.preventDefault();e.returnValue='';}
   });
@@ -1271,12 +1271,15 @@ function render(){
   });
 
   // Сортируем по корпусу → место → factNum
-  var PLACE_ORDER={'Этаж':1,'МОП':2,'Квартира':3};
+  var PLACE_ORDER={'Этаж':1,'МОП':2,'Квартира':3,'Квартиры':3,'Лифт. холл':4,'Лест. клетка':5,'Лестничная клетка':5};
   COL_KEYS.sort((a,b)=>{
     var cc=a.corpus.localeCompare(b.corpus,undefined,{numeric:true,sensitivity:'base'});
     if(cc!==0) return cc;
     var po=(PLACE_ORDER[a.place]||99)-(PLACE_ORDER[b.place]||99);
     if(po!==0) return po;
+    // Одинаковый приоритет — группируем по названию места, чтобы колонки одного места шли подряд
+    var pc=(a.place||'').localeCompare(b.place||'',undefined,{sensitivity:'base'});
+    if(pc!==0) return pc;
     if(a.factNum!==b.factNum) return a.factNum-b.factNum;
     var lc=(a.lvl2||'').localeCompare(b.lvl2||'',undefined,{sensitivity:'base'});
     if(lc!==0) return lc;
