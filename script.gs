@@ -86,6 +86,7 @@ function doGet(e) {
     }
     if (action === 'getCheckLists') return jsonOut(getCheckLists());
     if (action === 'getStaffing')   return jsonOut(getStaffing());
+    if (action === 'getProtocol')   return jsonOut(getProtocol());
 
 
     if (action === 'checkPassword') {
@@ -187,6 +188,11 @@ function doPost(e) {
         lock.releaseLock();
       }
       return jsonOut({ok: true, saved: changedIndices.length, requested: rows.length});
+    }
+
+    if (body.action === 'addProtocol') {
+      addProtocolEntry(body);
+      return jsonOut({ok: true});
     }
 
     return jsonOut({error: 'Unknown action: ' + body.action});
@@ -415,6 +421,66 @@ function getCheckLists() {
   var result = {items: items};
   try { cache.put('sb5_checklists', JSON.stringify(result), 7200); } catch(e) {}
   return result;
+}
+
+// ─── ПРОТОКОЛ ──────────────────────────────────────────────────────
+// Лист «Протокол»: A=дата/время, B=автор, C=текст комментария.
+// Создаётся автоматически при первом обращении.
+function getProtocolSheet() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Протокол');
+  if (!sheet) {
+    sheet = ss.insertSheet('Протокол');
+    sheet.getRange(1, 1, 1, 3).setValues([['Дата', 'Автор', 'Комментарий']]);
+    sheet.setFrozenRows(1);
+    sheet.setColumnWidth(1, 120);
+    sheet.setColumnWidth(2, 160);
+    sheet.setColumnWidth(3, 500);
+  }
+  return sheet;
+}
+
+function getProtocol() {
+  var sheet = getProtocolSheet();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return {items: []};
+  var values = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+  var items = [];
+  values.forEach(function(row) {
+    var text = String(row[2]).trim();
+    if (!text) return;
+    items.push({
+      date  : formatDateTimeOut(row[0]),
+      author: String(row[1]).trim(),
+      text  : text
+    });
+  });
+  return {items: items};
+}
+
+function addProtocolEntry(data) {
+  var text = String(data.text || '').trim();
+  if (!text) throw new Error('Пустой комментарий');
+  var author = String(data.author || '').trim() || 'Аноним';
+  var sheet = getProtocolSheet();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var nowStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd.MM.yyyy HH:mm');
+    sheet.appendRow([nowStr, author, text]);
+    SpreadsheetApp.flush();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function formatDateTimeOut(v) {
+  if (!v) return '';
+  if (v instanceof Date) {
+    if (isNaN(v.getTime())) return '';
+    return pad(v.getDate()) + '.' + pad(v.getMonth() + 1) + '.' + v.getFullYear() + ' ' + pad(v.getHours()) + ':' + pad(v.getMinutes());
+  }
+  return String(v).trim();
 }
 
 function clearCache() {

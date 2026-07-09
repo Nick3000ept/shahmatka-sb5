@@ -33,7 +33,7 @@ git push
 
 ## Google Apps Script
 - **GAS Script ID**: `15e7iz9E_v2mnIYbeibUZVsowCMuwJ4A-HYoHXSpQeP9WpnsKwquVLFis`
-- **Текущий deployment URL**: `https://script.google.com/macros/s/AKfycbz8UwyUxa-8vxID2FsOS-4KhzRg00LZhFxEmuBeySq7BiZrc_vgtABWfdQOuvaoKePm/exec`
+- **Текущий deployment URL**: `https://script.google.com/macros/s/AKfycbzYtH05JtG-KI8Mm5laliWtG_jRzHwjqRt49WV4hHuJwbSx1duUTo-8Ct_y_IsxFjGi/exec`
 - **Google Sheet ID**: `1Vm0W09F1QNvBi3RK0pWjBa2KB19pXXex9kkd9vHq8zk`
 - Лист данных: `Факт`
 - Лист подрядчиков: `Подрядчики`
