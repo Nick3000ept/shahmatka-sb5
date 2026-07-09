@@ -182,6 +182,14 @@ td.cell.not-mine::after{content:'🔒';position:absolute;top:1px;left:2px;font-s
 .an-foot{background:var(--bg3)!important;font-weight:700;border-top:2px solid var(--brd2)!important;}
 .an-foot td{border-bottom:none!important;}
 .an-empty{padding:48px 24px;text-align:center;color:var(--ink3);font-size:12px;}
+.an-sec-title{padding:14px 16px 4px;font-size:11px;font-weight:700;color:var(--ink);border-top:2px solid var(--brd2);}
+.an-sec-sub{padding:0 16px 8px;font-size:9px;color:var(--ink3);font-style:italic;}
+.an-pivot-wrap{overflow-x:auto;padding-bottom:8px;}
+.an-pivot-wrap::-webkit-scrollbar{height:4px;}
+.an-pivot-wrap::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:2px;}
+.pv-stick{position:sticky;left:0;background:var(--bg2);z-index:1;}
+tr.an-detail .pv-stick{background:#f0f4ff;}
+tr.an-foot .pv-stick{background:var(--bg3);}
 
 /* ── HINT BAR ── */
 
@@ -834,7 +842,7 @@ window.onload=function(){
   applyZoom();
   var a=localStorage.getItem('sb5_author')||'';
   if(a){AUTHOR=a;var ai=document.getElementById('author-inp');if(ai)ai.value=a;}
-  BASE='https://script.google.com/macros/s/AKfycbzYtH05JtG-KI8Mm5laliWtG_jRzHwjqRt49WV4hHuJwbSx1duUTo-8Ct_y_IsxFjGi/exec';
+  BASE='https://script.google.com/macros/s/AKfycbx3jBGuIRPK54OL5Pu3_QFW2_syX0i7rWSBkaSVR4U5d0wjZGf_-TmC19CxJBrjO9It/exec';
   window.addEventListener('beforeunload',function(e){
     if(Object.keys(MOD).length>0){e.preventDefault();e.returnValue='';}
   });
@@ -2345,7 +2353,80 @@ function renderAnalytics(){
     idx++;
   });
   h+='</tbody></table>';
-  document.getElementById('an-body').innerHTML=buildStaffingHtml()+h;
+
+  // ── Сводная: готовые этажи по месяцам (подрядчик → работа) ──
+  // Готовым этаж считается по дате окончания работ (dateEnd, с учётом несохранённых правок)
+  var MONTH_NAMES=['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+  var pvOrgs={}, pvMonths={};
+  rows.forEach(r=>{
+    var mod=MOD[r.rowId];
+    var s=mod&&mod.status!==undefined?mod.status:(S2CSS[r.status||'']||'s-empty');
+    if(s!=='s-done') return;
+    var dateEnd=mod&&mod.dateEnd!==undefined?mod.dateEnd:(r.dateEnd||'');
+    var dMs=dateEnd?parseDateMs(fmtDate(dateEnd)):0;
+    if(!dMs) return;
+    var dd=new Date(dMs);
+    var mk=dd.getFullYear()*100+(dd.getMonth()+1); // числовой ключ ГГГГММ — сортируется как число
+    pvMonths[mk]=1;
+    var org=(mod&&mod.org!==undefined?mod.org:(r.org||''))||'Без подрядчика';
+    var work=r.work||'—';
+    if(!pvOrgs[org]) pvOrgs[org]={total:0,months:{},works:{}};
+    var o=pvOrgs[org];
+    o.total++; o.months[mk]=(o.months[mk]||0)+1;
+    if(!o.works[work]) o.works[work]={total:0,months:{}};
+    o.works[work].total++; o.works[work].months[mk]=(o.works[work].months[mk]||0)+1;
+  });
+  var pvMonthKeys=Object.keys(pvMonths).map(Number).sort((a,b)=>a-b);
+  var pvHtml='';
+  if(pvMonthKeys.length){
+    var mLbl=function(mk){return MONTH_NAMES[mk%100-1]+' '+String(Math.floor(mk/100)).slice(2);};
+    pvHtml+='<div class="an-sec-title">Готовые этажи по месяцам</div>';
+    pvHtml+='<div class="an-sec-sub">Статус «СМР окончены», месяц — по дате окончания работ. Клик по подрядчику — разбивка по работам.</div>';
+    pvHtml+='<div class="an-pivot-wrap"><table class="an-table" style="width:auto;min-width:100%;">';
+    pvHtml+='<thead><tr><th class="pv-stick" style="z-index:3;">Подрядчик / работа</th>';
+    pvMonthKeys.forEach(mk=>{pvHtml+='<th class="r" style="white-space:nowrap;">'+mLbl(mk)+'</th>';});
+    pvHtml+='<th class="r">Всего</th></tr></thead><tbody>';
+    var pvOrgNames=Object.keys(pvOrgs).sort((a,b)=>pvOrgs[b].total-pvOrgs[a].total);
+    var pvMTotals={},pvGTotal=0,pidx=0;
+    pvOrgNames.forEach(org=>{
+      var o=pvOrgs[org];
+      pvGTotal+=o.total;
+      pvHtml+='<tr class="an-work-row an-pvr-'+pidx+'" onclick="toggleAnPv('+pidx+')">';
+      pvHtml+='<td class="pv-stick" style="max-width:180px;min-width:130px;word-break:break-word;line-height:1.35;font-weight:600;"><span class="an-arrow">▸</span> '+e(org)+'</td>';
+      pvMonthKeys.forEach(mk=>{
+        var v=o.months[mk]||0; pvMTotals[mk]=(pvMTotals[mk]||0)+v;
+        pvHtml+='<td class="r">'+(v?'<span class="an-num">'+v+'</span>':'<span class="an-num zero">·</span>')+'</td>';
+      });
+      pvHtml+='<td class="r"><span class="an-num">'+o.total+'</span></td></tr>';
+      Object.keys(o.works).sort().forEach(w=>{
+        var wd=o.works[w];
+        pvHtml+='<tr class="an-detail an-pv-'+pidx+'" style="display:none">';
+        pvHtml+='<td class="pv-stick" style="padding-left:26px;font-size:10px;max-width:180px;word-break:break-word;line-height:1.3;">'+e(w)+'</td>';
+        pvMonthKeys.forEach(mk=>{var v=wd.months[mk]||0;pvHtml+='<td class="r">'+(v||'')+'</td>';});
+        pvHtml+='<td class="r">'+wd.total+'</td></tr>';
+      });
+      pidx++;
+    });
+    pvHtml+='<tr class="an-foot"><td class="pv-stick">Итого</td>';
+    pvMonthKeys.forEach(mk=>{pvHtml+='<td class="r">'+(pvMTotals[mk]||0)+'</td>';});
+    pvHtml+='<td class="r">'+pvGTotal+'</td></tr>';
+    pvHtml+='</tbody></table></div>';
+  }else{
+    pvHtml+='<div class="an-sec-title">Готовые этажи по месяцам</div>';
+    pvHtml+='<div class="an-empty" style="padding:20px;">Нет готовых этажей с датой окончания</div>';
+  }
+
+  document.getElementById('an-body').innerHTML=buildStaffingHtml()+h+pvHtml;
+}
+function toggleAnPv(idx){
+  var open=false;
+  document.querySelectorAll('.an-pv-'+idx).forEach(row=>{
+    var show=row.style.display==='none';
+    row.style.display=show?'':'none';
+    if(show) open=true;
+  });
+  var arrow=document.querySelector('.an-pvr-'+idx+' .an-arrow');
+  if(arrow) arrow.textContent=open?'▾':'▸';
 }
 function toggleAnDetail(idx){
   var open=false;
