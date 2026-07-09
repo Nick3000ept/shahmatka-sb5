@@ -246,6 +246,10 @@ th.h-work-grp.gp{border-left:2px solid #4b5563;}
 th.h-maxdate{background:#eef3ff;font-family:var(--mono);font-size:10px;font-weight:700;color:#3b5fb5;text-align:center;padding:2px 4px;border-bottom:2px solid var(--brd2);border-right:1px solid var(--brd);white-space:nowrap;height:18px;}
 th.h-maxdate.gs{border-left:3px solid #1a1d24;}
 th.h-maxdate.gp{border-left:2px solid #4b5563;}
+th.h-ready{background:#e9f9ef;font-family:var(--mono);font-size:10px;font-weight:700;color:#1e8a4e;text-align:center;padding:2px 4px;border-bottom:2px solid var(--brd2);border-right:1px solid var(--brd);white-space:nowrap;height:18px;}
+th.h-ready.partial{background:#f3f5f8;color:#8a8f9c;}
+th.h-ready.gs{border-left:3px solid #1a1d24;}
+th.h-ready.gp{border-left:2px solid #4b5563;}
 .h-corp-date{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);letter-spacing:.08em;}
 
 /* ── ЯЧЕЙКИ ── */
@@ -845,7 +849,7 @@ window.onload=function(){
   applyZoom();
   var a=localStorage.getItem('sb5_author')||'';
   if(a){AUTHOR=a;var ai=document.getElementById('author-inp');if(ai)ai.value=a;}
-  BASE='https://script.google.com/macros/s/AKfycbzwCEQu_gP1pPhKlk0AZFtP8ne8HYTKKpyby0ZLyYNah9obrfanZ6n6abJKtZwz2udC/exec';
+  BASE='https://script.google.com/macros/s/AKfycbyvumszbdJekAevW-0KIlEFtkf17JmX96dGXVBNrEAvrZQhrAqr_rAdaXkK2lxnHnSn/exec';
   window.addEventListener('beforeunload',function(e){
     if(Object.keys(MOD).length>0){e.preventDefault();e.returnValue='';}
   });
@@ -1359,18 +1363,29 @@ function render(){
   COL_KEYS.forEach(c=>{ _colKeyLookup[c.corpus+'|'+(c.place||'')+'|'+(c.lvl2||'')+'|'+c.work+'|'+(c.extra1||'')]=c.key; });
   var maxDateByCol={};
   var maxDateByCorpus={};
+  var maxDoneByCol={};              // макс. дата готовности (dateEnd, с учётом несохранённых правок)
+  var colDoneCnt={}, colTotalCnt={};
   rows.forEach(r=>{
+    var ck=_colKeyLookup[r.corpus+'|'+(r.place||'')+'|'+(r.lvl2||'')+'|'+r.work+'|'+(r.extra1||'')];
+    if(ck){
+      colTotalCnt[ck]=(colTotalCnt[ck]||0)+1;
+      var mod=MOD[r.rowId];
+      var st=mod&&mod.status!==undefined?mod.status:(S2CSS[r.status||'']||'s-empty');
+      if(st==='s-done') colDoneCnt[ck]=(colDoneCnt[ck]||0)+1;
+      var de=mod&&mod.dateEnd!==undefined?mod.dateEnd:(r.dateEnd||'');
+      var deMs=de?parseDateMs(fmtDate(de)):0;
+      if(deMs&&(!maxDoneByCol[ck]||deMs>maxDoneByCol[ck])) maxDoneByCol[ck]=deMs;
+    }
     if(!r.baseDate) return;
     var d=parseDateMs(r.baseDate);
     if(!d) return;
-    var ck=_colKeyLookup[r.corpus+'|'+(r.place||'')+'|'+(r.lvl2||'')+'|'+r.work+'|'+(r.extra1||'')];
     if(ck&&(!maxDateByCol[ck]||d>maxDateByCol[ck])) maxDateByCol[ck]=d;
     if(!maxDateByCorpus[r.corpus]||d>maxDateByCorpus[r.corpus]) maxDateByCorpus[r.corpus]=d;
   });
 
   // THEAD — 4/5/6 уровней: Корпус → Место → (Группа работ) → Работа (→ Доп.признак) → Макс дата
   var h='<thead>';
-  var _rs=(hasExtra1?5:4)+(hasLvl2?1:0);
+  var _rs=(hasExtra1?6:5)+(hasLvl2?1:0);
   h+='<tr><th class="corner" rowspan="'+_rs+'"><div class="corner-lbl">Этаж</div></th>';
   var addedC={};
   COL_KEYS.forEach((c,i)=>{
@@ -1455,7 +1470,23 @@ function render(){
     var isNewP=!isNewC&&(i===0||COL_KEYS[i-1].place!==c.place);
     var dMs=maxDateByCol[c.key];
     var dLbl=dMs?fmtDateMs(dMs):'—';
-    h+='<th class="h-maxdate'+(isNewC?' gs':isNewP?' gp':'')+'" >'+dLbl+'</th>';
+    h+='<th class="h-maxdate'+(isNewC?' gs':isNewP?' gp':'')+'" title="Макс. базовая дата (план)">'+dLbl+'</th>';
+  });
+  h+='</tr>';
+
+  // Строка 5/6: Макс дата готовности по колонке (факт, по дате окончания работ)
+  h+='<tr>';
+  COL_KEYS.forEach((c,i)=>{
+    var isNewC=i===0||COL_KEYS[i-1].corpus!==c.corpus;
+    var isNewP=!isNewC&&(i===0||COL_KEYS[i-1].place!==c.place);
+    var dMs=maxDoneByCol[c.key];
+    var done=colDoneCnt[c.key]||0, total=colTotalCnt[c.key]||0;
+    var allDone=done>0&&done===total;
+    var dLbl=dMs?fmtDateMs(dMs):'—';
+    var tip=dMs
+      ?('Макс. дата готовности'+(allDone?' — все этажи готовы ('+total+')':' — готово '+done+' из '+total))
+      :'Нет дат окончания работ';
+    h+='<th class="h-ready'+(isNewC?' gs':isNewP?' gp':'')+(allDone?'':' partial')+'" title="'+tip+'">'+dLbl+'</th>';
   });
   h+='</tr></thead><tbody>';
 
