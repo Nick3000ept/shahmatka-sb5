@@ -849,7 +849,7 @@ window.onload=function(){
   applyZoom();
   var a=localStorage.getItem('sb5_author')||'';
   if(a){AUTHOR=a;var ai=document.getElementById('author-inp');if(ai)ai.value=a;}
-  BASE='https://script.google.com/macros/s/AKfycbyvumszbdJekAevW-0KIlEFtkf17JmX96dGXVBNrEAvrZQhrAqr_rAdaXkK2lxnHnSn/exec';
+  BASE='https://script.google.com/macros/s/AKfycbxVI2uzOsimQDW0HjWZAXPWOe-duj4sxmlesGPwImwZ70Ph-jhQ4PZP1QDSKKhBAZ0/exec';
   window.addEventListener('beforeunload',function(e){
     if(Object.keys(MOD).length>0){e.preventDefault();e.returnValue='';}
   });
@@ -1363,7 +1363,7 @@ function render(){
   COL_KEYS.forEach(c=>{ _colKeyLookup[c.corpus+'|'+(c.place||'')+'|'+(c.lvl2||'')+'|'+c.work+'|'+(c.extra1||'')]=c.key; });
   var maxDateByCol={};
   var maxDateByCorpus={};
-  var maxDoneByCol={};              // макс. дата готовности (dateEnd, с учётом несохранённых правок)
+  var maxDoneByCol={};              // макс. текущая дата окончания (расчёт, столбец currentDate)
   var colDoneCnt={}, colTotalCnt={};
   rows.forEach(r=>{
     var ck=_colKeyLookup[r.corpus+'|'+(r.place||'')+'|'+(r.lvl2||'')+'|'+r.work+'|'+(r.extra1||'')];
@@ -1372,8 +1372,7 @@ function render(){
       var mod=MOD[r.rowId];
       var st=mod&&mod.status!==undefined?mod.status:(S2CSS[r.status||'']||'s-empty');
       if(st==='s-done') colDoneCnt[ck]=(colDoneCnt[ck]||0)+1;
-      var de=mod&&mod.dateEnd!==undefined?mod.dateEnd:(r.dateEnd||'');
-      var deMs=de?parseDateMs(fmtDate(de)):0;
+      var deMs=r.currentDate?parseDateMs(fmtDate(r.currentDate)):0;
       if(deMs&&(!maxDoneByCol[ck]||deMs>maxDoneByCol[ck])) maxDoneByCol[ck]=deMs;
     }
     if(!r.baseDate) return;
@@ -1474,7 +1473,7 @@ function render(){
   });
   h+='</tr>';
 
-  // Строка 5/6: Макс дата готовности по колонке (факт, по дате окончания работ)
+  // Строка 5/6: Макс текущая дата окончания (расчёт) по колонке
   h+='<tr>';
   COL_KEYS.forEach((c,i)=>{
     var isNewC=i===0||COL_KEYS[i-1].corpus!==c.corpus;
@@ -1484,8 +1483,8 @@ function render(){
     var allDone=done>0&&done===total;
     var dLbl=dMs?fmtDateMs(dMs):'—';
     var tip=dMs
-      ?('Макс. дата готовности'+(allDone?' — все этажи готовы ('+total+')':' — готово '+done+' из '+total))
-      :'Нет дат окончания работ';
+      ?('Макс. текущее окончание (расчёт)'+(allDone?' — все этажи готовы ('+total+')':' — готово '+done+' из '+total))
+      :'Нет текущих дат окончания';
     h+='<th class="h-ready'+(isNewC?' gs':isNewP?' gp':'')+(allDone?'':' partial')+'" title="'+tip+'">'+dLbl+'</th>';
   });
   h+='</tr></thead><tbody>';
