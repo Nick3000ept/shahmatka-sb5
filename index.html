@@ -107,9 +107,8 @@ td.cell.not-mine::after{content:'🔒';position:absolute;top:1px;left:2px;font-s
 .pwd-btns{display:flex;gap:8px;justify-content:flex-end;}
 
 /* ── ПРОТОКОЛ ── */
-.proto-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:500;align-items:center;justify-content:center;}
-.proto-overlay.on{display:flex;}
-.proto-box{background:var(--bg2);border:1px solid var(--brd2);border-radius:10px;width:540px;max-width:94vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.18);overflow:hidden;}
+.proto-panel{display:none;position:fixed;top:0;right:0;width:400px;max-width:92vw;height:100vh;background:var(--bg2);border-left:1px solid var(--brd);z-index:495;flex-direction:column;box-shadow:-6px 0 28px rgba(0,0,0,.1);}
+.proto-panel.on{display:flex;}
 .proto-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid var(--brd);flex-shrink:0;}
 .proto-title{font-size:13px;font-weight:600;color:var(--ink);}
 .proto-list{flex:1;overflow-y:auto;padding:4px 0;min-height:120px;}
@@ -124,6 +123,10 @@ td.cell.not-mine::after{content:'🔒';position:absolute;top:1px;left:2px;font-s
 .proto-ta:focus{border-color:var(--acc);background:#fff;}
 .proto-form-row{display:flex;gap:8px;align-items:center;}
 .proto-hint{font-size:10px;color:var(--ink3);margin-right:auto;}
+.proto-work-sel{width:100%;padding:6px 10px;border:1px solid var(--brd2);border-radius:var(--r);font-size:11px;font-family:var(--sans);outline:none;color:var(--ink);background:var(--bg3);cursor:pointer;}
+.proto-work-sel:focus{border-color:var(--acc);background:#fff;}
+.proto-work-tag{display:inline-block;background:rgba(91,124,250,.1);border:1px solid rgba(91,124,250,.25);color:var(--acc);border-radius:6px;font-size:9px;font-weight:600;padding:1px 6px;margin-top:4px;line-height:1.5;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.proto-filter-note{padding:7px 16px;font-size:9px;color:var(--ink3);font-style:italic;border-bottom:1px solid var(--brd);background:var(--bg3);}
 
 /* ── CHECKLIST BADGE & POPUP ── */
 .cl-badge{position:absolute;top:2px;right:2px;background:var(--acc);color:#fff;border-radius:8px;font-size:9px;font-weight:700;padding:0 4px;line-height:14px;z-index:2;font-family:var(--mono);pointer-events:none;}
@@ -478,7 +481,7 @@ td.cell.s-empty .c-bar-fill{background:#94a3b8;}
     <input class="url-input" id="author-inp" placeholder="Ваше имя…" style="width:130px;" oninput="saveAuthor(this.value)">
     <div class="sep"></div>
     <button class="btn" id="an-btn" onclick="toggleAnalytics()" style="font-size:11px;">📊 Аналитика</button>
-    <button class="btn" id="proto-btn" onclick="openProtocol()" style="font-size:11px;">📋 Протокол</button>
+    <button class="btn" id="proto-btn" onclick="toggleProtocol()" style="font-size:11px;">📋 Протокол</button>
   </div>
 </div>
 
@@ -690,19 +693,19 @@ td.cell.s-empty .c-bar-fill{background:#94a3b8;}
   </div>
 </div>
 
-<div class="proto-overlay" id="proto-overlay" onclick="if(event.target===this)closeProtocol()">
-  <div class="proto-box">
-    <div class="proto-head">
-      <div class="proto-title">📋 Протокол — комментарии к шахматке</div>
-      <button class="po-close" onclick="closeProtocol()">✕</button>
-    </div>
-    <div class="proto-list" id="proto-list"><div class="proto-empty">Загрузка…</div></div>
-    <div class="proto-form">
-      <textarea class="proto-ta" id="proto-ta" placeholder="Оставьте комментарий…"></textarea>
-      <div class="proto-form-row">
-        <span class="proto-hint" id="proto-hint"></span>
-        <button class="btn btn-pri" id="proto-add-btn" onclick="addProtocol()">Добавить запись</button>
-      </div>
+<div class="proto-panel" id="proto-panel">
+  <div class="proto-head">
+    <div class="proto-title">📋 Протокол</div>
+    <button class="po-close" onclick="closeProtocol()">✕</button>
+  </div>
+  <div class="proto-filter-note" id="proto-filter-note" style="display:none"></div>
+  <div class="proto-list" id="proto-list"><div class="proto-empty">Загрузка…</div></div>
+  <div class="proto-form">
+    <select class="proto-work-sel" id="proto-work"><option value="">Без привязки к работе</option></select>
+    <textarea class="proto-ta" id="proto-ta" placeholder="Оставьте комментарий…"></textarea>
+    <div class="proto-form-row">
+      <span class="proto-hint" id="proto-hint"></span>
+      <button class="btn btn-pri" id="proto-add-btn" onclick="addProtocol()">Добавить запись</button>
     </div>
   </div>
 </div>
@@ -842,7 +845,7 @@ window.onload=function(){
   applyZoom();
   var a=localStorage.getItem('sb5_author')||'';
   if(a){AUTHOR=a;var ai=document.getElementById('author-inp');if(ai)ai.value=a;}
-  BASE='https://script.google.com/macros/s/AKfycbx3jBGuIRPK54OL5Pu3_QFW2_syX0i7rWSBkaSVR4U5d0wjZGf_-TmC19CxJBrjO9It/exec';
+  BASE='https://script.google.com/macros/s/AKfycbzwCEQu_gP1pPhKlk0AZFtP8ne8HYTKKpyby0ZLyYNah9obrfanZ6n6abJKtZwz2udC/exec';
   window.addEventListener('beforeunload',function(e){
     if(Object.keys(MOD).length>0){e.preventDefault();e.returnValue='';}
   });
@@ -1593,6 +1596,7 @@ function render(){
   renderUnsaved();
   updateMsBar();
   if(ANALYTICS_OPEN) renderAnalytics();
+  if(PROTO_OPEN) renderProtocol();
 }
 
 function statusShort(s){
@@ -2231,6 +2235,7 @@ function toggleAnalytics(){
   document.getElementById('analytics-panel').classList.toggle('on',ANALYTICS_OPEN);
   document.getElementById('an-btn').classList.toggle('btn-pri',ANALYTICS_OPEN);
   if(ANALYTICS_OPEN){
+    closeProtocol(); // обе панели справа — открыта может быть только одна
     STAFFING_DATA=[];
     loadStaffing(function(){renderAnalytics();});
     renderAnalytics();
@@ -2441,17 +2446,54 @@ function toggleAnDetail(idx){
 
 // ─── ПРОТОКОЛ ─────────────────────────────────────────────────────
 var PROTO_ITEMS=[];
-function openProtocol(){
-  if(!BASE){toast('Сначала подключитесь','err');return;}
-  document.getElementById('proto-overlay').classList.add('on');
-  var hint=document.getElementById('proto-hint');
-  var author=protoAuthor();
-  hint.textContent=author?('Автор: '+author):'Введите имя в поле «Ваше имя…» вверху';
-  loadProtocol();
+var PROTO_OPEN=false;
+function toggleProtocol(){
+  if(!PROTO_OPEN&&!BASE){toast('Сначала подключитесь','err');return;}
+  PROTO_OPEN=!PROTO_OPEN;
+  document.getElementById('proto-panel').classList.toggle('on',PROTO_OPEN);
+  document.getElementById('proto-btn').classList.toggle('btn-pri',PROTO_OPEN);
+  if(PROTO_OPEN){
+    closeAnalytics(); // обе панели справа — открыта может быть только одна
+    var hint=document.getElementById('proto-hint');
+    var author=protoAuthor();
+    hint.textContent=author?('Автор: '+author):'Введите имя в поле «Ваше имя…» вверху';
+    fillProtoWorkSelect();
+    loadProtocol();
+  }
 }
-function closeProtocol(){document.getElementById('proto-overlay').classList.remove('on');}
+function closeProtocol(){
+  PROTO_OPEN=false;
+  document.getElementById('proto-panel').classList.remove('on');
+  document.getElementById('proto-btn').classList.remove('btn-pri');
+}
 function protoAuthor(){
   return AUTHOR||CONTRACTOR||(IS_ADMIN?'Администратор':IS_SK?'СК':'');
+}
+function fillProtoWorkSelect(){
+  var sel=document.getElementById('proto-work');
+  var cur=sel.value;
+  var works={};
+  ROWS.forEach(r=>{if(r.work)works[r.work]=1;});
+  var names=Object.keys(works).sort();
+  var html='<option value="">Без привязки к работе</option>';
+  names.forEach(w=>{html+='<option value="'+e(w)+'">'+e(w)+'</option>';});
+  sel.innerHTML=html;
+  // Если в фильтре выбрана ровно одна работа — подставляем её
+  if(FW.size===1) sel.value=[...FW][0];
+  else if(cur&&works[cur]) sel.value=cur;
+}
+// Проходит ли привязанная работа текущие фильтры по работам
+function protoWorkVisible(work){
+  if(!work) return true; // общие комментарии видны всегда
+  var attrs=null;
+  for(var i=0;i<ROWS.length;i++){if(ROWS[i].work===work){attrs=ROWS[i];break;}}
+  if(FW.size>0&&!FW.has(work)) return false;
+  if(attrs){
+    if(FM&&attrs.place!==FM) return false;
+    if(FL1&&attrs.lvl1!==FL1) return false;
+    if(FL2&&attrs.lvl2!==FL2) return false;
+  }
+  return true;
 }
 async function loadProtocol(){
   var list=document.getElementById('proto-list');
@@ -2469,18 +2511,30 @@ async function loadProtocol(){
   }
 }
 function renderProtocol(){
+  if(!PROTO_OPEN) return;
   var list=document.getElementById('proto-list');
+  var note=document.getElementById('proto-filter-note');
   if(!PROTO_ITEMS.length){
+    note.style.display='none';
     list.innerHTML='<div class="proto-empty">Записей пока нет — оставьте первый комментарий</div>';
     return;
   }
-  var html='';
-  // Новые записи сверху
+  var html='',hidden=0;
+  // Новые записи сверху; записи с работой фильтруются вместе с шахматкой
   for(var i=PROTO_ITEMS.length-1;i>=0;i--){
     var it=PROTO_ITEMS[i];
-    html+='<div class="proto-item"><div class="proto-meta">'+e(it.date)+' · <span class="proto-author">'+e(it.author||'—')+'</span></div><div class="proto-text">'+e(it.text)+'</div></div>';
+    if(!protoWorkVisible(it.work)){hidden++;continue;}
+    html+='<div class="proto-item"><div class="proto-meta">'+e(it.date)+' · <span class="proto-author">'+e(it.author||'—')+'</span></div><div class="proto-text">'+e(it.text)+'</div>';
+    if(it.work) html+='<div class="proto-work-tag" title="'+e(it.work)+'">📌 '+e(it.work)+'</div>';
+    html+='</div>';
   }
-  list.innerHTML=html;
+  if(hidden>0){
+    note.style.display='';
+    note.textContent='Скрыто фильтром работ: '+hidden+' · снимите фильтры, чтобы увидеть все записи';
+  }else{
+    note.style.display='none';
+  }
+  list.innerHTML=html||'<div class="proto-empty">Все записи скрыты фильтром работ</div>';
 }
 async function addProtocol(){
   var ta=document.getElementById('proto-ta');
@@ -2488,10 +2542,11 @@ async function addProtocol(){
   if(!text){toast('Введите текст комментария','err');return;}
   var author=protoAuthor();
   if(!author){toast('Введите имя в поле «Ваше имя…» вверху','err',3500);return;}
+  var work=document.getElementById('proto-work').value||'';
   var btn=document.getElementById('proto-add-btn');
   btn.disabled=true;btn.textContent='Сохранение…';
   try{
-    var r=await fetch(BASE,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'addProtocol',author:author,text:text})});
+    var r=await fetch(BASE,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'addProtocol',author:author,text:text,work:work})});
     if(!r.ok) throw new Error('HTTP '+r.status);
     var t=await r.text();
     var j; try{j=JSON.parse(t);}catch(ex2){j={ok:true};}

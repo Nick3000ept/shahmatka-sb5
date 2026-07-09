@@ -424,18 +424,22 @@ function getCheckLists() {
 }
 
 // ─── ПРОТОКОЛ ──────────────────────────────────────────────────────
-// Лист «Протокол»: A=дата/время, B=автор, C=текст комментария.
+// Лист «Протокол»: A=дата/время, B=автор, C=текст комментария, D=привязанная работа.
 // Создаётся автоматически при первом обращении.
 function getProtocolSheet() {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var sheet = ss.getSheetByName('Протокол');
   if (!sheet) {
     sheet = ss.insertSheet('Протокол');
-    sheet.getRange(1, 1, 1, 3).setValues([['Дата', 'Автор', 'Комментарий']]);
+    sheet.getRange(1, 1, 1, 4).setValues([['Дата', 'Автор', 'Комментарий', 'Работа']]);
     sheet.setFrozenRows(1);
     sheet.setColumnWidth(1, 120);
     sheet.setColumnWidth(2, 160);
     sheet.setColumnWidth(3, 500);
+    sheet.setColumnWidth(4, 220);
+  } else if (!String(sheet.getRange(1, 4).getValue()).trim()) {
+    // Лист создан старой версией без столбца «Работа» — дописываем заголовок
+    sheet.getRange(1, 4).setValue('Работа');
   }
   return sheet;
 }
@@ -444,7 +448,7 @@ function getProtocol() {
   var sheet = getProtocolSheet();
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return {items: []};
-  var values = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+  var values = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
   var items = [];
   values.forEach(function(row) {
     var text = String(row[2]).trim();
@@ -452,7 +456,8 @@ function getProtocol() {
     items.push({
       date  : formatDateTimeOut(row[0]),
       author: String(row[1]).trim(),
-      text  : text
+      text  : text,
+      work  : String(row[3]).trim()
     });
   });
   return {items: items};
@@ -462,12 +467,13 @@ function addProtocolEntry(data) {
   var text = String(data.text || '').trim();
   if (!text) throw new Error('Пустой комментарий');
   var author = String(data.author || '').trim() || 'Аноним';
+  var work   = String(data.work || '').trim();
   var sheet = getProtocolSheet();
   var lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
     var nowStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd.MM.yyyy HH:mm');
-    sheet.appendRow([nowStr, author, text]);
+    sheet.appendRow([nowStr, author, text, work]);
     SpreadsheetApp.flush();
   } finally {
     lock.releaseLock();
