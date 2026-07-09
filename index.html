@@ -243,9 +243,6 @@ th.h-work.col-sel{background:rgba(79,142,247,.08);color:var(--acc);}
 th.h-work-grp{background:var(--bg3);font-size:10px;font-weight:700;color:var(--ink);text-align:center;padding:3px 4px;border-bottom:1px solid var(--brd2);border-right:1px solid var(--brd);white-space:normal;word-break:break-word;line-height:1.2;vertical-align:middle;height:36px;}
 th.h-work-grp.gs{border-left:3px solid #1a1d24;}
 th.h-work-grp.gp{border-left:2px solid #4b5563;}
-th.h-maxdate{background:#eef3ff;font-family:var(--mono);font-size:10px;font-weight:700;color:#3b5fb5;text-align:center;padding:2px 4px;border-bottom:2px solid var(--brd2);border-right:1px solid var(--brd);white-space:nowrap;height:18px;}
-th.h-maxdate.gs{border-left:3px solid #1a1d24;}
-th.h-maxdate.gp{border-left:2px solid #4b5563;}
 th.h-ready{background:#e9f9ef;font-family:var(--mono);font-size:10px;font-weight:700;color:#1e8a4e;text-align:center;padding:2px 4px;border-bottom:2px solid var(--brd2);border-right:1px solid var(--brd);white-space:nowrap;height:18px;}
 th.h-ready.partial{background:#f3f5f8;color:#8a8f9c;}
 th.h-ready.gs{border-left:3px solid #1a1d24;}
@@ -849,7 +846,7 @@ window.onload=function(){
   applyZoom();
   var a=localStorage.getItem('sb5_author')||'';
   if(a){AUTHOR=a;var ai=document.getElementById('author-inp');if(ai)ai.value=a;}
-  BASE='https://script.google.com/macros/s/AKfycbxVI2uzOsimQDW0HjWZAXPWOe-duj4sxmlesGPwImwZ70Ph-jhQ4PZP1QDSKKhBAZ0/exec';
+  BASE='https://script.google.com/macros/s/AKfycbw-sYV3SI7vws_FMO0EvBBsOXuA76xgzVjR3SjpTeJtItMid7g21qstMgkQHIv-d-I/exec';
   window.addEventListener('beforeunload',function(e){
     if(Object.keys(MOD).length>0){e.preventDefault();e.returnValue='';}
   });
@@ -1361,7 +1358,6 @@ function render(){
   // Считаем макс базовую дату по каждой колонке и по каждому корпусу — O(n)
   var _colKeyLookup={};
   COL_KEYS.forEach(c=>{ _colKeyLookup[c.corpus+'|'+(c.place||'')+'|'+(c.lvl2||'')+'|'+c.work+'|'+(c.extra1||'')]=c.key; });
-  var maxDateByCol={};
   var maxDateByCorpus={};
   var maxDoneByCol={};              // макс. текущая дата окончания (расчёт, столбец currentDate)
   var colDoneCnt={}, colTotalCnt={};
@@ -1378,13 +1374,12 @@ function render(){
     if(!r.baseDate) return;
     var d=parseDateMs(r.baseDate);
     if(!d) return;
-    if(ck&&(!maxDateByCol[ck]||d>maxDateByCol[ck])) maxDateByCol[ck]=d;
     if(!maxDateByCorpus[r.corpus]||d>maxDateByCorpus[r.corpus]) maxDateByCorpus[r.corpus]=d;
   });
 
   // THEAD — 4/5/6 уровней: Корпус → Место → (Группа работ) → Работа (→ Доп.признак) → Макс дата
   var h='<thead>';
-  var _rs=(hasExtra1?6:5)+(hasLvl2?1:0);
+  var _rs=(hasExtra1?5:4)+(hasLvl2?1:0);
   h+='<tr><th class="corner" rowspan="'+_rs+'"><div class="corner-lbl">Этаж</div></th>';
   var addedC={};
   COL_KEYS.forEach((c,i)=>{
@@ -1462,18 +1457,7 @@ function render(){
     h+='</tr>';
   }
 
-  // Строка 4/5: Макс базовая дата по колонке
-  h+='<tr>';
-  COL_KEYS.forEach((c,i)=>{
-    var isNewC=i===0||COL_KEYS[i-1].corpus!==c.corpus;
-    var isNewP=!isNewC&&(i===0||COL_KEYS[i-1].place!==c.place);
-    var dMs=maxDateByCol[c.key];
-    var dLbl=dMs?fmtDateMs(dMs):'—';
-    h+='<th class="h-maxdate'+(isNewC?' gs':isNewP?' gp':'')+'" title="Макс. базовая дата (план)">'+dLbl+'</th>';
-  });
-  h+='</tr>';
-
-  // Строка 5/6: Макс текущая дата окончания (расчёт) по колонке
+  // Строка 4/5: Макс текущая дата окончания (расчёт) по колонке
   h+='<tr>';
   COL_KEYS.forEach((c,i)=>{
     var isNewC=i===0||COL_KEYS[i-1].corpus!==c.corpus;
