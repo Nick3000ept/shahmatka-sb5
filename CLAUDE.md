@@ -6,7 +6,7 @@
 - **Хостинг**: GitHub Pages — `https://nick3000ept.github.io/shahmatka-sb5/`
 - **Репозиторий**: `https://github.com/Nick3000ept/shahmatka-sb5`
 
-## Деплой (все команды по запросу "задеплой")
+## Деплой (выполняется сразу после завершения правок)
 ```bash
 cd "d:/YandexDisk/VS_hub/СБ5_шахматка"
 # 1. Google Apps Script (бэкенд)
@@ -62,7 +62,8 @@ git push
 - clasp авторизован под `kuzkin@acons.group`
 
 ## Правила безопасности
+
+> Общие правила — в корневом [../CLAUDE.md](../CLAUDE.md). Здесь — специфика проекта.
+
 - Редактировать ТОЛЬКО: `index.html`, `script.gs`, `CLAUDE.md`, `appsscript.json`, `.gitignore`
-- Никогда не трогать файлы вне папки `СБ5_шахматка/`
-- Не деплоить без явной команды "задеплой"
 - НЕ менять deployment через ручной деплой в GAS-редакторе — только через clasp
