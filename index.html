@@ -839,7 +839,7 @@ window.onload=function(){
   applyZoom();
   var a=localStorage.getItem('sb5_author')||'';
   if(a){AUTHOR=a;var ai=document.getElementById('author-inp');if(ai)ai.value=a;}
-  BASE='https://script.google.com/macros/s/AKfycbwDJZuijzUim5dk8DJLRoYXNaFtmk6ExvU6xxoZXfM5R5R88nuFw0JScxHXin5u49w/exec';
+  BASE='https://script.google.com/macros/s/AKfycbwwI0viPG5JakbwFg-38kKE0Z_F0OpVCytFXqgI2qA6vY6bGXHR7hcJIkn5-gjh3JQW/exec';
   window.addEventListener('beforeunload',function(e){
     if(Object.keys(MOD).length>0){e.preventDefault();e.returnValue='';}
   });
@@ -2383,14 +2383,26 @@ function renderMonthly(){
     if(mk>maxMk) maxMk=mk;
     var work=r.work||'—';
     var org=(mod&&mod.org!==undefined?mod.org:(r.org||''))||'Без подрядчика';
-    if(!byWork[work]) byWork[work]={total:0,months:{},orgs:{}};
+    if(!byWork[work]) byWork[work]={total:0,months:{},orgs:{},place:r.place||'',lvl2:r.lvl2||'',factNum:parseFloat(String(r.factNum||'').replace(',','.'))||9999};
     var wr=byWork[work];
     wr.total++; wr.months[mk]=(wr.months[mk]||0)+1;
     if(!wr.orgs[org]) wr.orgs[org]={total:0,months:{}};
     wr.orgs[org].total++; wr.orgs[org].months[mk]=(wr.orgs[org].months[mk]||0)+1;
   });
   var body=document.getElementById('monthly-body');
-  var workNames=Object.keys(byWork).sort();
+  // Группировка и порядок мест как на шахматке: Этаж → МОП → Квартиры → …, внутри — factNum → группа → работа
+  var PLACE_ORDER={'Этаж':1,'МОП':2,'Квартира':3,'Квартиры':3,'Лифт. холл':4,'Лест. клетка':5,'Лестничная клетка':5};
+  var workNames=Object.keys(byWork).sort((a,b)=>{
+    var da=byWork[a],db=byWork[b];
+    var po=(PLACE_ORDER[da.place]||99)-(PLACE_ORDER[db.place]||99);
+    if(po!==0) return po;
+    var pc=(da.place||'').localeCompare(db.place||'',undefined,{sensitivity:'base'});
+    if(pc!==0) return pc;
+    if(da.factNum!==db.factNum) return da.factNum-db.factNum;
+    var lc=(da.lvl2||'').localeCompare(db.lvl2||'',undefined,{sensitivity:'base'});
+    if(lc!==0) return lc;
+    return a.localeCompare(b,undefined,{sensitivity:'base'});
+  });
   if(!workNames.length||!minMk){
     body.innerHTML='<div class="an-empty">Нет работ с датой окончания по текущему фильтру</div>';
     return;
@@ -2402,10 +2414,14 @@ function renderMonthly(){
   h+='<thead><tr><th class="pv-stick" style="z-index:3;">Работа / подрядчик</th>';
   monthKeys.forEach(mk=>{h+='<th class="r" style="white-space:nowrap;">'+mLbl(mk)+'</th>';});
   h+='<th class="r">Всего</th></tr></thead><tbody>';
-  var mTotals={},gTotal=0,pidx=0;
+  var mTotals={},gTotal=0,pidx=0,curPlace='__NONE__';
   workNames.forEach(w=>{
     var wr=byWork[w];
     gTotal+=wr.total;
+    if(wr.place!==curPlace){
+      curPlace=wr.place;
+      h+='<tr class="an-grp-hdr"><td class="pv-stick">'+e(curPlace||'Прочее')+'</td><td colspan="'+(monthKeys.length+1)+'"></td></tr>';
+    }
     h+='<tr class="an-work-row an-pvr-'+pidx+'" onclick="toggleAnPv('+pidx+')">';
     h+='<td class="pv-stick" style="max-width:230px;min-width:170px;word-break:break-word;line-height:1.35;font-weight:600;"><span class="an-arrow">▸</span> '+e(w)+'</td>';
     monthKeys.forEach(mk=>{
