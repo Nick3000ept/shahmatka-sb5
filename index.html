@@ -955,6 +955,15 @@ function buildFilters(){
 
   // Если открыто по ссылке подрядчика — автоматически выставляем его организацию в фильтр
   if(CONTRACTOR && !IS_ADMIN){
+    // Ссылка могла обрезаться по пробелу при пересылке или отличаться регистром/пробелами —
+    // подбираем полное название организации из данных, если подходит ровно одна
+    if(orgs.indexOf(CONTRACTOR)===-1){
+      var _norm=function(s){return String(s||'').replace(/\s+/g,' ').trim().toLowerCase();};
+      var _cn=_norm(CONTRACTOR);
+      var _matches=orgs.filter(function(o){return _norm(o)===_cn;});
+      if(!_matches.length&&_cn) _matches=orgs.filter(function(o){return _norm(o).indexOf(_cn)!==-1;});
+      if(_matches.length===1) CONTRACTOR=_matches[0];
+    }
     os.value=CONTRACTOR;
     FO=CONTRACTOR;
   }
