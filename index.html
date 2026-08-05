@@ -1875,11 +1875,10 @@ function msCommit(){
         if(curSt3==='s-empty') MOD[rid].status='s-started';
       }
     }
-    // Автодата: если статус "окончены/передано" и дата окончания пустая — ставим сегодня
-    var finalSt=MOD[rid].status!==undefined?MOD[rid].status:(S2CSS[(ROWS_MAP.get(rid)||{}).status||'']||'s-empty');
-    if((finalSt==='s-done')&&!MOD[rid].dateEnd){
-      var origRow=ROWS_MAP.get(rid);
-      if(!origRow||!origRow.dateEnd) MOD[rid].dateEnd=_today2;
+    // Автодата: нажали «СМР окончены» или 100% — дата окончания = сегодня, даже если там уже была дата.
+    // Явно выбранная в форме дата важнее автоподстановки.
+    if(!dateVal&&(MS_DRAFT.status==='s-done'||parseInt(MS_DRAFT.pct)===100)){
+      MOD[rid].dateEnd=_today2;
     }
   });
   resetMsDraft();
@@ -2046,11 +2045,10 @@ function savePanel(){
       var curSt2=MOD[rid].status!==undefined?MOD[rid].status:(S2CSS[(origRow2||{}).status||'']||'s-empty');
       if(curSt2==='s-empty') MOD[rid].status='s-started';
     }
-    // Автодата: если статус "окончены/передано" и дата окончания пустая — ставим сегодня
-    var finalSt=MOD[rid].status!==undefined?MOD[rid].status:(S2CSS[(ROWS_MAP.get(rid)||{}).status||'']||'s-empty');
-    if((finalSt==='s-done')&&!MOD[rid].dateEnd){
-      var origRow=ROWS_MAP.get(rid);
-      if(!origRow||!origRow.dateEnd) MOD[rid].dateEnd=_today;
+    // Автодата: нажали «СМР окончены» или 100% — дата окончания = сегодня, даже если там уже была дата.
+    // Явно выбранная в форме дата важнее автоподстановки.
+    if(!_dateTouched&&((_statusTouched&&CUR_ST==='s-done')||(_pctTouched&&pctSlider===100))){
+      MOD[rid].dateEnd=_today;
     }
     // Если ничего не изменилось — не добавлять в очередь на сохранение
     if(Object.keys(MOD[rid]).length===0) delete MOD[rid];
