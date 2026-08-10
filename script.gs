@@ -6,6 +6,7 @@ const SHEET_NAME = 'Факт';
 const SPREADSHEET_ID = '1Vm0W09F1QNvBi3RK0pWjBa2KB19pXXex9kkd9vHq8zk';
 const ADMIN_PASSWORD = 'adminACCB3';
 const SK_PASSWORD    = 'priemkaCB3';
+const TASKS_SHEET    = 'Поручения';
 
 const C = {
   ROW_ID    : 1,
@@ -29,6 +30,15 @@ function jsonOut(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Экранирование пользовательского ввода перед записью в таблицу:
+// значения на =, +, -, @ Google Sheets трактует как формулу — ставим апостроф впереди.
+function safeCell_(v) {
+  var s = (v === undefined || v === null) ? '' : String(v);
+  if (s.length > 5000) s = s.substring(0, 5000);
+  if (/^[=+\-@]/.test(s)) s = "'" + s;
+  return s;
 }
 
 function doGet(e) {
@@ -61,6 +71,21 @@ function doGet(e) {
       return jsonOut({sheetName: SHEET_NAME, lastRow: lastRow, totalRows: total, passedFilter: passed, sheets: sheets, sample: sample});
     }
 
+    // ВРЕМЕННО для диагностики раздутого листа (удалить после)
+    if (action === 'debugFar') {
+      var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+      var sheet = ss.getSheetByName(SHEET_NAME);
+      var lastRow = sheet.getLastRow(), lastCol = sheet.getLastColumn();
+      var probe = [6085, 6092, 6100, 8000, 15000, 25000, lastRow].filter(function(r){ return r >= 2 && r <= lastRow; });
+      var out = probe.map(function(r){
+        var vals = sheet.getRange(r, 1, 1, lastCol).getValues()[0];
+        var filled = [];
+        vals.forEach(function(v, i){ if (String(v).trim() !== '') filled.push((i + 1) + ':' + String(v).slice(0, 40)); });
+        return {row: r, filled: filled};
+      });
+      return jsonOut({lastRow: lastRow, lastCol: lastCol, probe: out});
+    }
+
     if (action === 'getContractors') {
       var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
       var sheet = ss.getSheetByName('Подрядчики');
@@ -87,6 +112,7 @@ function doGet(e) {
     if (action === 'getCheckLists') return jsonOut(getCheckLists());
     if (action === 'getStaffing')   return jsonOut(getStaffing());
     if (action === 'getProtocol')   return jsonOut(getProtocol());
+    if (action === 'getTasks')      return jsonOut(getTasks(p.all === '1'));
 
 
     if (action === 'checkPassword') {
@@ -193,6 +219,17 @@ function doPost(e) {
     if (body.action === 'addProtocol') {
       addProtocolEntry(body);
       return jsonOut({ok: true});
+    }
+
+    // Поручения — создание и правка только под паролем администратора
+    if (body.action === 'addTasks') {
+      if (body.pwd !== ADMIN_PASSWORD) return jsonOut({error: 'Нет прав'});
+      return jsonOut(addTasks(body));
+    }
+
+    if (body.action === 'updateTask') {
+      if (body.pwd !== ADMIN_PASSWORD) return jsonOut({error: 'Нет прав'});
+      return jsonOut(updateTask(body));
     }
 
     return jsonOut({error: 'Unknown action: ' + body.action});
@@ -421,6 +458,93 @@ function getCheckLists() {
   var result = {items: items};
   try { cache.put('sb5_checklists', JSON.stringify(result), 7200); } catch(e) {}
   return result;
+}
+
+// ─── ПОРУЧЕНИЯ ─────────────────────────────────────────────────────
+// Лист «Поручения»: A=id | B=Подрядчик | C=Текст | D=Срок | E=Статус |
+//                   F=Создано | G=Автор | H=Комментарий | I=Приоритет
+// Создаётся автоматически при первом обращении.
+function ensureTasksSheet_() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(TASKS_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(TASKS_SHEET);
+    sheet.appendRow(['id', 'Подрядчик', 'Текст', 'Срок', 'Статус', 'Создано', 'Автор', 'Комментарий', 'Приоритет']);
+    sheet.setFrozenRows(1);
+    sheet.setColumnWidth(3, 420);
+    sheet.setColumnWidth(8, 420);
+  }
+  return sheet;
+}
+
+function getTasks(includeAll) {
+  var sheet = ensureTasksSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return {tasks: []};
+  var values = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
+  var tasks = [];
+  values.forEach(function(row) {
+    var id = String(row[0]).trim();
+    if (!id) return;
+    var status = String(row[4]).trim() || 'открыто';
+    if (!includeAll && status !== 'открыто') return;
+    tasks.push({
+      id      : id,
+      org     : String(row[1]).trim(),
+      text    : String(row[2]).trim(),
+      due     : formatDateOut(row[3]),
+      status  : status,
+      created : formatDateOut(row[5]),
+      author  : String(row[6]).trim(),
+      comment : String(row[7]).trim(),
+      priority: String(row[8]).trim()
+    });
+  });
+  return {tasks: tasks};
+}
+
+// Пакетное добавление: все поручения одним запросом, одна запись в лист.
+// Либо записывается весь пакет, либо (при ошибке валидации) ничего.
+function addTasks(body) {
+  var list = body.tasks;
+  if (!list || !list.length) return {error: 'Нет поручений'};
+  var sheet = ensureTasksSheet_();
+  var nowStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd.MM.yyyy');
+  var rowsOut = [];
+  for (var i = 0; i < list.length; i++) {
+    var t = list[i] || {};
+    var text = String(t.text || '').trim();
+    if (!text) return {error: 'У каждого поручения нужен текст (строка ' + (i + 1) + ')'};
+    var id = 't' + Date.now() + i + Math.floor(Math.random() * 1000);
+    rowsOut.push([id, safeCell_(t.org), safeCell_(text), safeCell_(t.due), 'открыто',
+                  nowStr, safeCell_(body.author), safeCell_(t.comment), '']);
+  }
+  sheet.getRange(sheet.getLastRow() + 1, 1, rowsOut.length, 9).setValues(rowsOut);
+  SpreadsheetApp.flush();
+  return {ok: true, added: rowsOut.length};
+}
+
+function updateTask(body) {
+  var id = String(body.id || '').trim();
+  if (!id) return {error: 'Нет id поручения'};
+  var sheet = ensureTasksSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return {error: 'Поручение не найдено'};
+  var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === id) {
+      var r = i + 2;
+      if (body.status   !== undefined) sheet.getRange(r, 5).setValue(safeCell_(body.status));
+      if (body.org      !== undefined) sheet.getRange(r, 2).setValue(safeCell_(body.org));
+      if (body.text     !== undefined) sheet.getRange(r, 3).setValue(safeCell_(body.text));
+      if (body.due      !== undefined) sheet.getRange(r, 4).setValue(safeCell_(body.due));
+      if (body.comment  !== undefined) sheet.getRange(r, 8).setValue(safeCell_(body.comment));
+      if (body.priority !== undefined) sheet.getRange(r, 9).setValue(safeCell_(body.priority));
+      SpreadsheetApp.flush();
+      return {ok: true};
+    }
+  }
+  return {error: 'Поручение не найдено'};
 }
 
 // ─── ПРОТОКОЛ ──────────────────────────────────────────────────────

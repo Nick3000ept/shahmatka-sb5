@@ -147,6 +147,39 @@ td.cell.not-mine::after{content:'🔒';position:absolute;top:1px;left:2px;font-s
 .cl-remarks{background:var(--red-bg);color:var(--red);border-radius:4px;padding:0 4px;font-size:9px;font-weight:600;white-space:nowrap;}
 .cl-item-remarks{font-size:10px;color:var(--ink2);margin-top:4px;line-height:1.4;background:var(--red-bg);border-radius:4px;padding:3px 7px;white-space:pre-wrap;}
 
+/* ── ПАНЕЛЬ ПОРУЧЕНИЙ (справа, как аналитика) ── */
+.task-panel{display:none;position:fixed;top:0;right:0;width:520px;max-width:96vw;height:100vh;background:var(--bg2);border-left:1px solid var(--brd);z-index:490;flex-direction:column;box-shadow:-6px 0 28px rgba(0,0,0,.1);}
+.task-panel.on{display:flex;}
+.task-body{overflow-y:auto;flex:1;padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
+.tk-form{display:flex;flex-direction:column;gap:5px;}
+.tk-inp{box-sizing:border-box;padding:8px 10px;border:1px solid var(--brd2);border-radius:8px;font-size:12px;outline:none;color:var(--ink);background:var(--bg);font-family:inherit;}
+.tk-inp:focus{border-color:var(--acc);}
+.tk-desc{box-sizing:border-box;padding:6px 10px;border:1px solid var(--brd2);border-radius:8px;font-size:11px;outline:none;color:var(--ink);background:var(--bg2);font-family:inherit;resize:none;overflow:hidden;line-height:1.4;}
+.tk-desc:focus{border-color:var(--acc);}
+.tk-actions{display:flex;justify-content:flex-end;padding-top:2px;}
+.tk-open-title{font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-top:12px;padding-top:12px;border-top:1px solid var(--brd);}
+.tk-list{display:flex;flex-direction:column;gap:6px;}
+.task-item{position:relative;display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border:1px solid var(--brd);border-radius:8px;background:var(--bg);}
+.task-item .ti-main{flex:1;min-width:0;}
+.task-item .ti-text{font-size:12px;color:var(--ink);word-break:break-word;}
+.task-item .ti-meta{font-size:10px;color:var(--ink3);margin-top:3px;}
+.task-item .ti-comm{width:100%;box-sizing:border-box;margin-top:4px;padding:4px 8px;border:1px dashed var(--brd2);border-radius:6px;font-size:11px;color:var(--ink);background:var(--bg2);outline:none;font-family:inherit;resize:none;overflow:hidden;line-height:1.4;}
+.task-item .ti-comm:focus{border-color:var(--acc);border-style:solid;}
+.task-item .ti-comm-ro{font-size:11px;color:var(--ink3);margin-top:3px;font-style:italic;word-break:break-word;}
+.task-item.hi{border-left:3px solid #ef4444;}
+.task-item.done{opacity:.55;}
+/* «Выполнено» — по вертикальному центру карточки; справа зазор под значок «!» */
+.ti-btns{display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:stretch;align-self:center;margin-right:22px;}
+.ti-btns .btn{white-space:nowrap;}
+.ti-pri-ico{position:absolute;top:7px;right:8px;width:20px;height:20px;border-radius:50%;border:1px solid var(--brd2);background:var(--bg2);color:var(--ink3);font-weight:800;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+.ti-pri-ico:hover{border-color:#ef4444;color:#ef4444;}
+.ti-pri-ico.on{background:#ef4444;border-color:#ef4444;color:#fff;}
+.ti-pri-ico.ro{cursor:default;}
+.tasks-empty{font-size:12px;color:var(--ink3);text-align:center;padding:16px;}
+.tasks-done-hdr{font-size:11px;font-weight:600;color:var(--ink3);cursor:pointer;padding:6px 0;display:flex;align-items:center;gap:5px;user-select:none;margin-top:4px;}
+.tasks-done-hdr:hover{color:var(--ink);}
+.tasks-done-list{display:flex;flex-direction:column;gap:6px;overflow:hidden;}
+
 /* ── ANALYTICS PANEL ── */
 .an-panel{display:none;position:fixed;top:0;right:0;width:480px;max-width:96vw;height:100vh;background:var(--bg2);border-left:1px solid var(--brd);z-index:490;flex-direction:column;box-shadow:-6px 0 28px rgba(0,0,0,.1);}
 .an-panel.on{display:flex;}
@@ -489,6 +522,7 @@ td.cell.s-empty .c-bar-fill{background:#94a3b8;}
     <div class="sep"></div>
     <button class="btn" id="an-btn" onclick="toggleAnalytics()" style="font-size:11px;">📊 Аналитика</button>
     <button class="btn" id="proto-btn" onclick="toggleProtocol()" style="font-size:11px;">📋 Протокол</button>
+    <button class="btn" id="task-btn" onclick="toggleTasks()" style="font-size:11px;">📌 Поручения</button>
   </div>
 </div>
 
@@ -688,6 +722,26 @@ td.cell.s-empty .c-bar-fill{background:#94a3b8;}
   </div>
 </div>
 
+<!-- ПАНЕЛЬ ПОРУЧЕНИЙ (справа) -->
+<div class="task-panel" id="task-panel">
+  <div class="an-head">
+    <div><div class="an-title">📌 Поручения</div></div>
+    <button class="btn" onclick="closeTasks()" style="padding:3px 9px;font-size:12px;flex-shrink:0;">✕</button>
+  </div>
+  <div class="task-body">
+    <!-- Создание поручений — только админ; список ниже видят все -->
+    <div class="tk-form admin-only" id="tk-form">
+      <input class="tk-inp" id="tk-theme" placeholder="Тема">
+      <textarea class="tk-desc" id="tk-descr" rows="2" placeholder="Описание" oninput="autoGrowComm(this)"></textarea>
+    </div>
+    <div class="tk-actions admin-only">
+      <button class="btn btn-pri" onclick="addTaskFromForm()">＋ Добавить</button>
+    </div>
+    <div class="tk-open-title">Открытые поручения</div>
+    <div class="tk-list" id="tk-list"><div class="tasks-empty">Загрузка…</div></div>
+  </div>
+</div>
+
 <div class="toasts" id="toasts"></div>
 
 <script>
@@ -710,6 +764,8 @@ var AUTHOR='';
 var CONTRACTOR=new URLSearchParams(window.location.search).get('contractor')||'';
 var IS_ADMIN=sessionStorage.getItem('sb5_admin')==='1';
 var IS_SK=sessionStorage.getItem('sb5_sk')==='1';
+// Пароль админа хранится на время вкладки — нужен для защищённых POST (поручения)
+var ADMIN_PWD=sessionStorage.getItem('sb5_admin_pwd')||'';
 var _pwdCallback=null;
 // Сегодня в миллисекундах (без времени)
 var _t=new Date(); _t.setHours(0,0,0,0);
@@ -2194,6 +2250,8 @@ async function submitPwd(){
       } else {
         IS_ADMIN=true;
         sessionStorage.setItem('sb5_admin','1');
+        ADMIN_PWD=pwd;
+        sessionStorage.setItem('sb5_admin_pwd',pwd);
       }
       applyRoleUI();
       closePwdModal();
@@ -2247,7 +2305,7 @@ function toggleAnalytics(){
   document.getElementById('analytics-panel').classList.toggle('on',ANALYTICS_OPEN);
   document.getElementById('an-btn').classList.toggle('btn-pri',ANALYTICS_OPEN);
   if(ANALYTICS_OPEN){
-    closeProtocol(); // обе панели справа — открыта может быть только одна
+    closeProtocol(); closeTasks(); // панели справа — открыта может быть только одна
     STAFFING_DATA=[];
     loadStaffing(function(){renderAnalytics();});
     renderAnalytics();
@@ -2481,7 +2539,7 @@ function toggleProtocol(){
   document.getElementById('proto-panel').classList.toggle('on',PROTO_OPEN);
   document.getElementById('proto-btn').classList.toggle('btn-pri',PROTO_OPEN);
   if(PROTO_OPEN){
-    closeAnalytics(); // обе панели справа — открыта может быть только одна
+    closeAnalytics(); closeTasks(); // панели справа — открыта может быть только одна
     var hint=document.getElementById('proto-hint');
     var author=protoAuthor();
     hint.textContent=author?('Автор: '+author):'Введите имя в поле «Ваше имя…» вверху';
@@ -2586,6 +2644,237 @@ async function addProtocol(){
     toast('Ошибка: '+ex.message,'err',4500);
   }finally{
     btn.disabled=false;btn.textContent='Добавить запись';
+  }
+}
+
+// ─── ПОРУЧЕНИЯ (панель справа) ────────────────────────────────────
+// TASKS — только открытые поручения; DONE_TASKS — выполненные (null = ещё не загружены).
+// Панель видна всем: не-админ читает список, создавать и править может только админ.
+var TASKS=[], DONE_TASKS=null, DONE_OPEN=false, TASKS_PANEL_OPEN=false;
+
+// fetch с авто-повторами: сетевые ошибки и HTML-ответы GAS повторяем до 3 раз
+// с растущей паузой, и только потом отдаём ошибку наверх
+async function fetchJson(url,opts,tries){
+  tries=tries||3;
+  var lastErr;
+  for(var i=0;i<tries;i++){
+    try{
+      var r=await fetch(url,opts);
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      var t=await r.text();
+      if(t.trim()[0]==='<') throw new Error('Скрипт вернул страницу вместо данных — переразверните деплой');
+      return JSON.parse(t);
+    }catch(ex){
+      lastErr=ex;
+      if(i<tries-1) await new Promise(function(res){setTimeout(res,1200*(i+1));});
+    }
+  }
+  throw lastErr;
+}
+
+function toggleTasks(){ TASKS_PANEL_OPEN?closeTasks():openTasks(); }
+function openTasks(){
+  if(!BASE){ toast('Сначала подключитесь','err'); return; }
+  // Админу нужен сохранённый пароль для защищённых запросов; у просмотра пароль не спрашиваем
+  if(IS_ADMIN&&!ADMIN_PWD){ openPwdModal(openTasks); return; }
+  closeAnalytics(); closeProtocol(); // панели справа — открыта может быть только одна
+  TASKS_PANEL_OPEN=true;
+  document.getElementById('task-panel').classList.add('on');
+  document.getElementById('task-btn').classList.add('btn-pri');
+  loadTasks();
+}
+function closeTasks(){
+  TASKS_PANEL_OPEN=false;
+  document.getElementById('task-panel').classList.remove('on');
+  document.getElementById('task-btn').classList.remove('btn-pri');
+}
+
+function cacheTasks(){ try{ localStorage.setItem('sb5_tasks', JSON.stringify(TASKS)); }catch(ex){} }
+
+async function loadTasks(){
+  var box=document.getElementById('tk-list');
+  // Мгновенный показ: последний известный список из localStorage, свежий тянем фоном
+  var cached=null;
+  try{ cached=JSON.parse(localStorage.getItem('sb5_tasks')||'null'); }catch(ex){}
+  if(cached&&cached.map){ TASKS=cached; renderTasksList(); }
+  else box.innerHTML='<div class="tasks-empty">Загрузка…</div>';
+  try{
+    var j=await fetchJson(BASE+'?action=getTasks&t='+Date.now()); // только открытые; выполненные — по клику
+    if(j.error) throw new Error(j.error);
+    TASKS=j.tasks||[];
+    cacheTasks();
+    renderTasksList();
+  }catch(ex){
+    if(cached&&cached.map) toast('Не удалось обновить поручения — показан сохранённый список','inf');
+    else box.innerHTML='<div class="tasks-empty">Ошибка загрузки</div>';
+  }
+}
+
+function taskItemHtml(t, isDone){
+  // Не-админ видит поручения только для чтения: без правки комментария и кнопок
+  var hi=!isDone&&t.priority==='Высокий';
+  var comm=(IS_ADMIN&&!isDone)
+    ?'<textarea class="ti-comm" rows="1" placeholder="+ комментарий" oninput="autoGrowComm(this)" onchange="saveTaskComment(\''+e(t.id)+'\',this.value)">'+e(t.comment||'')+'</textarea>'
+    :(t.comment?'<div class="ti-comm-ro">💬 '+e(t.comment)+'</div>':'');
+  var right='', priIco='';
+  if(isDone) right='<span style="font-size:10px;color:var(--ink3);flex-shrink:0;">✓</span>';
+  else if(IS_ADMIN){
+    right='<div class="ti-btns"><button class="btn" onclick="markTaskDone(\''+e(t.id)+'\')">✓ Выполнено</button></div>';
+    priIco='<button class="ti-pri-ico'+(hi?' on':'')+'" title="'+(hi?'Высокий приоритет — нажмите, чтобы снять':'Отметить высокий приоритет')+'" onclick="toggleTaskPriority(\''+e(t.id)+'\')">!</button>';
+  }
+  else if(hi) priIco='<span class="ti-pri-ico on ro" title="Высокий приоритет">!</span>';
+  return '<div class="task-item'+(isDone?' done':'')+(hi?' hi':'')+'" data-tid="'+e(t.id)+'">'+
+    priIco+
+    '<div class="ti-main">'+
+      '<div class="ti-text">'+e(t.text)+'</div>'+
+      '<div class="ti-meta">создано '+e(t.created)+(t.author?' · '+e(t.author):'')+'</div>'+
+      comm+
+    '</div>'+right+
+  '</div>';
+}
+
+function renderTasksList(){
+  var box=document.getElementById('tk-list');
+  var html='';
+  // Поручения с высоким приоритетом — наверху, остальные в исходном порядке
+  var open=TASKS.slice().sort(function(a,b){
+    return (b.priority==='Высокий'?1:0)-(a.priority==='Высокий'?1:0);
+  });
+  if(!open.length) html+='<div class="tasks-empty">Открытых поручений нет</div>';
+  else html+=open.map(function(t){return taskItemHtml(t,false);}).join('');
+  html+='<div class="tasks-done-hdr" onclick="toggleDoneList()">'+
+    '<span>'+(DONE_OPEN?'▾':'▸')+'</span> Выполнено'+
+    (DONE_TASKS?' ('+DONE_TASKS.length+')':'')+'</div>';
+  if(DONE_OPEN){
+    html+='<div class="tasks-done-list">'+
+      (DONE_TASKS===null
+        ?'<div class="tasks-empty">Загрузка…</div>'
+        :(DONE_TASKS.length
+          ?DONE_TASKS.map(function(t){return taskItemHtml(t,true);}).join('')
+          :'<div class="tasks-empty">Выполненных нет</div>'))+
+    '</div>';
+  }
+  box.innerHTML=html;
+  // Комментарии — под высоту текста, чтобы было видно целиком
+  box.querySelectorAll('.ti-comm').forEach(function(el){ autoGrowComm(el); });
+}
+
+// Высота поля подстраивается под текст
+function autoGrowComm(el){
+  el.style.height='auto';
+  el.style.height=(el.scrollHeight+2)+'px';
+}
+
+// Выполненные грузятся с сервера только при первом раскрытии блока
+async function toggleDoneList(){
+  DONE_OPEN=!DONE_OPEN;
+  renderTasksList();
+  if(DONE_OPEN&&DONE_TASKS===null){
+    try{
+      var j=await fetchJson(BASE+'?action=getTasks&all=1&t='+Date.now());
+      if(j.error) throw new Error(j.error);
+      var all=j.tasks||[];
+      DONE_TASKS=all.filter(function(t){return t.status==='выполнено';});
+      TASKS=all.filter(function(t){return t.status!=='выполнено';});
+      cacheTasks();
+    }catch(ex){
+      DONE_OPEN=false;
+      toast('Не удалось загрузить выполненные','err');
+    }
+    renderTasksList();
+  }
+}
+
+// «Добавить»: поручение сразу появляется в списке, форма очищается под следующее,
+// запрос уходит фоном; при ошибке — запись убирается, текст возвращается в форму.
+async function addTaskFromForm(){
+  if(!ADMIN_PWD){ openPwdModal(addTaskFromForm); return; }
+  var themeEl=document.getElementById('tk-theme'), descEl=document.getElementById('tk-descr');
+  var text=themeEl.value.trim(), comm=descEl.value.trim();
+  if(!text){ toast('Впишите тему поручения','inf'); themeEl.focus(); return; }
+  var p2=function(n){return n<10?'0'+n:String(n);};
+  var d=new Date();
+  var temp={id:'tmp'+Date.now(), org:'', text:text, due:'', status:'открыто',
+    created:p2(d.getDate())+'.'+p2(d.getMonth()+1)+'.'+d.getFullYear(), author:AUTHOR, comment:comm, priority:''};
+  TASKS.push(temp);
+  renderTasksList();
+  themeEl.value=''; descEl.value=''; autoGrowComm(descEl); themeEl.focus();
+  try{
+    var j=await fetchJson(BASE,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
+      action:'addTasks', pwd:ADMIN_PWD, author:AUTHOR, tasks:[{org:'', text:text, due:'', comment:comm}]
+    })});
+    if(j.error) throw new Error(j.error);
+    loadTasks(); // фоновое обновление подменит временную запись настоящей (с серверным id)
+  }catch(ex){
+    TASKS=TASKS.filter(function(x){return x.id!==temp.id;});
+    cacheTasks();
+    renderTasksList();
+    themeEl.value=text; descEl.value=comm; autoGrowComm(descEl);
+    toast('Не удалось добавить поручение: '+ex.message,'err',4500);
+  }
+}
+
+async function markTaskDone(id){
+  if(!ADMIN_PWD){ openPwdModal(function(){markTaskDone(id);}); return; }
+  if(id.indexOf('tmp')===0){ toast('Поручение ещё сохраняется — секунду','inf'); return; }
+  try{
+    var j=await fetchJson(BASE,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
+      action:'updateTask', pwd:ADMIN_PWD, id:id, status:'выполнено'
+    })});
+    if(j.error){ toast(j.error,'err'); return; }
+    // Переносим локально из открытых в выполненные — без перезагрузки списка
+    var t=TASKS.filter(function(x){return x.id===id;})[0];
+    if(t){
+      t.status='выполнено';
+      TASKS=TASKS.filter(function(x){return x.id!==id;});
+      if(DONE_TASKS) DONE_TASKS.unshift(t);
+    }
+    cacheTasks();
+    renderTasksList();
+    toast('Отмечено выполненным','ok');
+  }catch(ex){ toast('Ошибка','err'); }
+}
+
+// Комментарий к поручению: сохраняется при уходе из поля (onchange)
+async function saveTaskComment(id, val){
+  if(id.indexOf('tmp')===0){ toast('Поручение ещё сохраняется — секунду','inf'); return; }
+  val=String(val).trim();
+  var t=TASKS.filter(function(x){return x.id===id;})[0];
+  if(t&&String(t.comment||'').trim()===val) return; // не изменился — не дёргаем бэк
+  if(!ADMIN_PWD){ openPwdModal(function(){saveTaskComment(id, val);}); return; }
+  try{
+    var j=await fetchJson(BASE,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
+      action:'updateTask', pwd:ADMIN_PWD, id:id, comment:val
+    })});
+    if(j.error){ toast(j.error,'err'); return; }
+    if(t) t.comment=val;
+    cacheTasks();
+    toast('Комментарий сохранён','ok');
+  }catch(ex){ toast('Ошибка сохранения комментария','err'); }
+}
+
+// Приоритет: обычный <-> «Высокий»; высокие поднимаются наверх списка.
+// Список меняется сразу, запрос уходит фоном; при ошибке — откат.
+async function toggleTaskPriority(id){
+  if(!ADMIN_PWD){ openPwdModal(function(){toggleTaskPriority(id);}); return; }
+  if(id.indexOf('tmp')===0){ toast('Поручение ещё сохраняется — секунду','inf'); return; }
+  var t=TASKS.filter(function(x){return x.id===id;})[0];
+  if(!t) return;
+  var oldPri=t.priority||'';
+  var newPri=oldPri==='Высокий'?'':'Высокий';
+  t.priority=newPri;
+  cacheTasks();
+  renderTasksList();
+  try{
+    var j=await fetchJson(BASE,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
+      action:'updateTask', pwd:ADMIN_PWD, id:id, priority:newPri
+    })});
+    if(j.error) throw new Error(j.error);
+  }catch(ex){
+    t.priority=oldPri;
+    cacheTasks();
+    renderTasksList();
+    toast('Не удалось изменить приоритет','err');
   }
 }
 
