@@ -2152,28 +2152,13 @@ async function batchSave(rowIds){
     return p;
   });
   try{
-    // До 20 строк — пишем построчно через saveRow (быстро)
-    // Больше 20 — пакетная запись через saveAll (медленнее но надёжнее)
-    // Для малого кол-ва — параллельные одиночные запросы
-    var _hasParseWarn=false;
-    if(rowIds.length <= 20){
-      var promises = payload.map(p=>
-        fetch(BASE,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'saveRow',...p})})
-          .then(r=>{if(!r.ok) throw new Error('HTTP '+r.status); return r.text();})
-          .then(t=>{try{return JSON.parse(t);}catch(e){_hasParseWarn=true;return {ok:true,_parseWarn:true};}})
-      );
-      var results = await Promise.all(promises);
-      var err = results.find(r=>!r.ok);
-      if(err) throw new Error(err.error||'Ошибка');
-    } else {
-      var r=await fetch(BASE,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'saveAll',rows:payload})});
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      var t=await r.text();
-      var j; try{j=JSON.parse(t);}catch(e){_hasParseWarn=true;j={ok:true,_parseWarn:true};}
-      if(!j.ok) throw new Error(j.error||'Ошибка');
-      if(!_hasParseWarn&&j.saved!==undefined&&j.requested!==undefined&&j.saved<j.requested){
-        toast('Внимание: '+(j.requested-j.saved)+' строк не найдено в таблице — проверьте данные','err',7000);
-      }
+    // Всегда один пакетный запрос saveAll через fetchJson (3 попытки с паузой).
+    // Раньше до 20 строк слали параллельными saveRow — Google обрывал часть
+    // запросов ("Failed to fetch"), сохранялось с 3-4 раза.
+    var j=await fetchJson(BASE,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'saveAll',rows:payload})});
+    if(!j.ok) throw new Error(j.error||'Ошибка');
+    if(j.saved!==undefined&&j.requested!==undefined&&j.saved<j.requested){
+      toast('Внимание: '+(j.requested-j.saved)+' строк не найдено в таблице — проверьте данные','err',7000);
     }
 
     var _rowMap=new Map(ROWS.map(r=>[r.rowId,r]));
@@ -2191,13 +2176,8 @@ async function batchSave(rowIds){
       }
       delete MOD[rid];
     });
-    if(_hasParseWarn){
-      setSt('err','Проверьте таблицу');
-      toast('Ответ сервера нечитаем — проверьте, сохранились ли данные в таблице','err',6000);
-    } else {
-      setSt('ok','Сохранено · '+new Date().toLocaleTimeString('ru'));
-      toast('Сохранено '+rowIds.length+(rowIds.length===1?' строк':'а строк'),'ok',1800);
-    }
+    setSt('ok','Сохранено · '+new Date().toLocaleTimeString('ru'));
+    toast('Сохранено: '+rowIds.length+(rowIds.length===1?' строка':' строк'),'ok',1800);
     render();
   }catch(ex){setSt('err','Ошибка: '+ex.message);toast('Ошибка: '+ex.message,'err',4000);}
 }
