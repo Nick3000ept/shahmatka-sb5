@@ -521,7 +521,6 @@ td.cell.s-empty .c-bar-fill{background:#94a3b8;}
     <input class="url-input" id="author-inp" placeholder="Ваше имя…" style="width:130px;" oninput="saveAuthor(this.value)">
     <div class="sep"></div>
     <button class="btn" id="an-btn" onclick="toggleAnalytics()" style="font-size:11px;">📊 Аналитика</button>
-    <button class="btn" id="proto-btn" onclick="toggleProtocol()" style="font-size:11px;">📋 Протокол</button>
     <button class="btn" id="task-btn" onclick="toggleTasks()" style="font-size:11px;">📌 Поручения</button>
   </div>
 </div>
@@ -2517,7 +2516,8 @@ function toggleProtocol(){
   if(!PROTO_OPEN&&!BASE){toast('Сначала подключитесь','err');return;}
   PROTO_OPEN=!PROTO_OPEN;
   document.getElementById('proto-panel').classList.toggle('on',PROTO_OPEN);
-  document.getElementById('proto-btn').classList.toggle('btn-pri',PROTO_OPEN);
+  var tb=document.getElementById('proto-btn');
+  if(tb) tb.classList.toggle('btn-pri',PROTO_OPEN);
   if(PROTO_OPEN){
     closeAnalytics(); closeTasks(); // панели справа — открыта может быть только одна
     var hint=document.getElementById('proto-hint');
@@ -2530,7 +2530,8 @@ function toggleProtocol(){
 function closeProtocol(){
   PROTO_OPEN=false;
   document.getElementById('proto-panel').classList.remove('on');
-  document.getElementById('proto-btn').classList.remove('btn-pri');
+  var b=document.getElementById('proto-btn'); // кнопка убрана из шапки (2026-08-12), панель оставлена в коде
+  if(b) b.classList.remove('btn-pri');
 }
 function protoAuthor(){
   return AUTHOR||CONTRACTOR||(IS_ADMIN?'Администратор':IS_SK?'СК':'');
