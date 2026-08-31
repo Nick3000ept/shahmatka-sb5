@@ -8,6 +8,7 @@ const ADMIN_PASSWORD = 'adminACCB3';
 const SK_PASSWORD    = 'priemkaCB3';
 const TASKS_SHEET    = 'Поручения';
 const VOL_SHEET      = 'Объемы';
+const VOL_HIST_SHEET = 'Объемы_история';
 
 const C = {
   ROW_ID    : 1,
@@ -255,6 +256,70 @@ function doPost(e) {
   }
 }
 
+// ─── ЖУРНАЛ ОБЪЁМОВ ────────────────────────────────────────────────
+// Лист «Объемы_история»: A=Дата | B=rowId | C=Корпус | D=Этаж | E=Работа |
+// F=Было | G=Стало | H=Прирост | I=Автор
+// Только добавление строк, ничего не перезаписывается. Отсюда считается «за 7/30 дней».
+const VHIST_READ_LIMIT = 5000; // читаем только хвост журнала
+
+function ensureVolHistSheet_() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sh = ss.getSheetByName(VOL_HIST_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(VOL_HIST_SHEET);
+    sh.getRange(1, 1, 1, 9).setValues([['Дата', 'rowId', 'Корпус', 'Этаж', 'Работа', 'Было', 'Стало', 'Прирост', 'Автор']]);
+    sh.setFrozenRows(1);
+    sh.setColumnWidth(5, 260);
+  }
+  return sh;
+}
+
+// Приросты факта по строкам за последние 60 дней: {rowId: [{ms, delta}]}
+function getVolHist() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get('sb5_vol_hist');
+  if (cached) { try { return JSON.parse(cached); } catch(e) {} }
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sh = ss.getSheetByName(VOL_HIST_SHEET);
+  var out = {};
+  if (sh) {
+    var lastRow = sh.getLastRow();
+    if (lastRow >= 2) {
+      var startRow = Math.max(2, lastRow - VHIST_READ_LIMIT + 1);
+      var vals = sh.getRange(startRow, 1, lastRow - startRow + 1, 8).getValues();
+      var cutoff = Date.now() - 60 * 24 * 3600 * 1000;
+      vals.forEach(function(r) {
+        var id = String(r[1]).trim();
+        if (!id) return;
+        var ms = 0;
+        var d = r[0];
+        if (d instanceof Date) ms = d.getTime();
+        else {
+          var m = String(d).trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+          if (m) ms = new Date(+m[3], +m[2] - 1, +m[1]).getTime();
+        }
+        if (!ms || ms < cutoff) return;
+        var delta = parseFloat(String(r[7]).replace(',', '.'));
+        if (isNaN(delta) || delta === 0) return;
+        if (!out[id]) out[id] = [];
+        out[id].push({ms: ms, d: delta});
+      });
+    }
+  }
+  try { cache.put('sb5_vol_hist', JSON.stringify(out), 7200); } catch(e) {}
+  return out;
+}
+
+// Сумма приростов по строке за последние N дней
+function volSumDays_(list, days) {
+  if (!list || !list.length) return 0;
+  var from = Date.now() - days * 24 * 3600 * 1000;
+  var sum = 0;
+  list.forEach(function(x) { if (x.ms >= from) sum += x.d; });
+  return Math.round(sum * 100) / 100;
+}
+
 // ─── ОБЪЁМЫ ────────────────────────────────────────────────────────
 // Лист «Объемы»: A=rowId | B=Корпус | C=Этаж | D=Работа | E=Ед.изм. | F=Объём итого |
 // G=Факт | H=Изменено | I=Автор
@@ -315,19 +380,32 @@ function saveVolFacts_(items, author) {
   var lastRow = sh.getLastRow();
   if (lastRow < 2) return 0;
 
-  var ids = sh.getRange(2, VOL.ROW_ID, lastRow - 1, 1).getValues();
+  // Читаем весь лист сразу: нужны и rowId, и старое значение факта, и описание работы
+  var all = sh.getRange(2, 1, lastRow - 1, 9).getValues();
   var map = {};
-  ids.forEach(function(r, i) { var id = String(r[0]).trim(); if (id) map[id] = i + 2; });
+  all.forEach(function(r, i) { var id = String(r[VOL.ROW_ID - 1]).trim(); if (id) map[id] = i; });
 
   var nowStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd.MM.yyyy');
-  var n = 0;
+  var n = 0, hist = [];
   items.forEach(function(it) {
-    var rowNum = map[String(it.rowId)];
-    if (!rowNum) return; // объёма для этой работы нет — факт писать некуда
-    var num = volNum_(it.fact);
-    sh.getRange(rowNum, VOL.FACT, 1, 3).setValues([[num === null ? '' : num, nowStr, safeCell_(author || '')]]);
+    var i = map[String(it.rowId)];
+    if (i === undefined) return; // объёма для этой работы нет — факт писать некуда
+    var was = volNum_(all[i][VOL.FACT - 1]);
+    var now = volNum_(it.fact);
+    sh.getRange(i + 2, VOL.FACT, 1, 3).setValues([[now === null ? '' : now, nowStr, safeCell_(author || '')]]);
     n++;
+    // В журнал — только если значение реально изменилось
+    var delta = (now === null ? 0 : now) - (was === null ? 0 : was);
+    if (delta !== 0) {
+      hist.push([nowStr, String(it.rowId), all[i][VOL.CORPUS - 1], all[i][VOL.FLOOR - 1], all[i][VOL.WORK - 1],
+                 was === null ? '' : was, now === null ? '' : now, Math.round(delta * 100) / 100, safeCell_(author || '')]);
+    }
   });
+
+  if (hist.length) {
+    var hs = ensureVolHistSheet_();
+    hs.getRange(hs.getLastRow() + 1, 1, hist.length, 9).setValues(hist);
+  }
   if (n) SpreadsheetApp.flush();
   return n;
 }
@@ -415,6 +493,7 @@ function getRows(filterCorpus) {
   if (lastRow < 2) return {rows: []};
   var dict = getWorkDict();
   var volMap = getVolMap();
+  var volHist = getVolHist();
   var values = sheet.getRange(2, 1, lastRow - 1, 20).getValues();
   var rows = [];
   for (var i = 0; i < values.length; i++) {
@@ -450,6 +529,8 @@ function getRows(filterCorpus) {
       volume     : vol ? vol.total : String(row[16]).trim(),
       unit       : vol ? vol.unit  : String(row[17]).trim(),
       fact       : vol ? vol.fact  : '',
+      volWeek    : vol ? volSumDays_(volHist[rowId], 7)  : 0,
+      volMonth   : vol ? volSumDays_(volHist[rowId], 30) : 0,
       idFact     : String(row[19]).trim()
     });
   }
@@ -757,6 +838,7 @@ function clearCache() {
     cache.remove('sb5_rows_all');
     cache.remove('sb5_work_dict');
     cache.remove('sb5_vol_map');
+    cache.remove('sb5_vol_hist');
     cache.remove('sb5_checklists');
     cache.remove('sb5_staffing');
     ['К1','К2','К3','К4','К5','К6','К7','К8','К9','К10','К11','К12'].forEach(function(c) {

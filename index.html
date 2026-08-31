@@ -1988,6 +1988,16 @@ function msCommit(){
   toast('Изменения готовы к сохранению. Нажмите 💾','inf',2000);
 }
 
+// Число в аналитике: 2205 → «2 205», 25.5 → «25,5»
+function anNum(n){
+  var v=Math.round((parseFloat(n)||0)*100)/100;
+  var neg=v<0; v=Math.abs(v);
+  var ip=Math.floor(v), fp=Math.round((v-ip)*100);
+  var str=String(ip).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+  if(fp){ var fs=String(fp); if(fs.length<2) fs='0'+fs; str+=','+fs.replace(/0$/,''); }
+  return (neg?'−':'')+str;
+}
+
 // ─── ОБЪЁМЫ ───────────────────────────────────────────────────────
 // Число из ячейки/поля: "25,5" → 25.5, пусто или мусор → null
 function volNum(v){
@@ -2284,7 +2294,15 @@ async function batchSave(rowIds){
         if(mod.dateEnd!==undefined) row.dateEnd=mod.dateEnd;
         if(mod.comment!==undefined) row.comment=mod.comment;
         if(mod.org!==undefined) row.org=mod.org;
-        if(mod.fact!==undefined) row.fact=mod.fact;
+        if(mod.fact!==undefined){
+          var _was=volNum(row.fact), _now=volNum(mod.fact);
+          var _dl=(_now===null?0:_now)-(_was===null?0:_was);
+          if(_dl){
+            row.volWeek=(volNum(row.volWeek)||0)+_dl;
+            row.volMonth=(volNum(row.volMonth)||0)+_dl;
+          }
+          row.fact=mod.fact;
+        }
         row.dateChg=new Date().toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'});
         row.author=AUTHOR;
       }
@@ -2421,6 +2439,7 @@ function anFilteredRows(){
     if(FL2&&r.lvl2!==FL2) return false;
     if(FW.size>0&&!FW.has(r.work)) return false;
     if(FKP&&!r.kp) return false;
+    if(SHOW_VOL&&!String(r.volume||'').trim()) return false;
     if(FSTATUS.size>0){var _fst2=MOD[r.rowId]&&MOD[r.rowId].status!==undefined?MOD[r.rowId].status:(S2CSS[r.status||'']||'s-empty');if(!FSTATUS.has(_fst2))return false;}
     if(FMOD&&!MOD[r.rowId]) return false;
     if(fdateMs){
@@ -2456,8 +2475,22 @@ function renderAnalytics(){
     var isDone=s==='s-done';
     var work=r.work||'—';
     var corp=r.corpus||'?';
-    if(!byWork[work]) byWork[work]={week:0,month:0,total:0,place:r.place||'',lvl2:r.lvl2||'',corpora:{}};
-    if(!byWork[work].corpora[corp]) byWork[work].corpora[corp]={week:0,month:0,total:0};
+    if(!byWork[work]) byWork[work]={week:0,month:0,total:0,plan:0,place:r.place||'',lvl2:r.lvl2||'',corpora:{}};
+    if(!byWork[work].corpora[corp]) byWork[work].corpora[corp]={week:0,month:0,total:0,plan:0};
+    if(SHOW_VOL){
+      // Объёмы: «факт» — сколько сделано всего, «7/30 дней» — прирост по журналу
+      var vt=volNum(r.volume)||0;
+      var mf=mod&&mod.fact!==undefined?mod.fact:r.fact;
+      var vf=volNum(mf);
+      if(vf===null) vf=isDone?vt:0; // факт не введён, но работа закрыта — считаем весь объём
+      byWork[work].plan+=vt;  byWork[work].corpora[corp].plan+=vt;
+      byWork[work].total+=vf; byWork[work].corpora[corp].total+=vf;
+      var vw=volNum(r.volWeek)||0, vm=volNum(r.volMonth)||0;
+      byWork[work].week+=vw;  byWork[work].corpora[corp].week+=vw;
+      byWork[work].month+=vm; byWork[work].corpora[corp].month+=vm;
+      totalDone+=vf;
+      return;
+    }
     if(!isDone) return;
     totalDone++;
     byWork[work].total++;
@@ -2472,6 +2505,10 @@ function renderAnalytics(){
   });
 
   document.getElementById('an-sub').textContent='';
+  var anNote=document.querySelector('.an-note');
+  if(anNote) anNote.textContent=SHOW_VOL
+    ? 'Режим объёмов: считаются единицы, а не строки. За 7/30 дней — сумма прироста факта по датам внесения.'
+    : 'Учитываются только строки со статусом «СМР окончены». За неделю/месяц — по дате окончания.';
 
   var works=Object.keys(byWork).sort((a,b)=>{
     var da=byWork[a],db=byWork[b];
@@ -2486,7 +2523,8 @@ function renderAnalytics(){
   }
 
   var h='<table class="an-table">';
-  h+='<thead><tr><th>Работа</th><th class="r">7 дн</th><th class="r">30 дн</th><th class="r">Факт</th></tr></thead><tbody>';
+  h+='<thead><tr><th>Работа</th><th class="r">7 дн</th><th class="r">30 дн</th><th class="r">'
+    +(SHOW_VOL?'Факт / итого':'Факт')+'</th></tr></thead><tbody>';
   var curPlace='__NONE__';
   var idx=0;
   works.forEach(w=>{
@@ -2498,18 +2536,18 @@ function renderAnalytics(){
     // Строка работы
     h+='<tr class="an-work-row an-wr-'+idx+'" onclick="toggleAnDetail('+idx+')">';
     h+='<td style="max-width:200px;word-break:break-word;line-height:1.35;padding-left:10px;"><span class="an-arrow">▸</span> '+e(w)+'</td>';
-    h+='<td class="r"><span class="an-num'+(d.week===0?' zero':'')+'">'+d.week+'</span></td>';
-    h+='<td class="r"><span class="an-num'+(d.month===0?' zero':'')+'">'+d.month+'</span></td>';
-    h+='<td class="r"><span class="an-num">'+d.total+'</span></td></tr>';
+    h+='<td class="r"><span class="an-num'+(d.week===0?' zero':'')+'">'+anNum(d.week)+'</span></td>';
+    h+='<td class="r"><span class="an-num'+(d.month===0?' zero':'')+'">'+anNum(d.month)+'</span></td>';
+    h+='<td class="r"><span class="an-num">'+anNum(d.total)+(SHOW_VOL?'<span style="color:var(--ink3);font-weight:400;"> / '+anNum(d.plan)+'</span>':'')+'</span></td></tr>';
     // Строки корпусов (скрыты)
     var corps=Object.keys(d.corpora).sort();
     corps.forEach(c=>{
       var cd=d.corpora[c];
       h+='<tr class="an-detail an-d-'+idx+'" style="display:none">';
       h+='<td style="padding-left:28px;font-size:10px;">'+e(c)+'</td>';
-      h+='<td class="r"><span class="an-num'+(cd.week===0?' zero':'')+'">'+cd.week+'</span></td>';
-      h+='<td class="r"><span class="an-num'+(cd.month===0?' zero':'')+'">'+cd.month+'</span></td>';
-      h+='<td class="r"><span class="an-num'+(cd.total===0?' zero':'')+'">'+cd.total+'</span></td></tr>';
+      h+='<td class="r"><span class="an-num'+(cd.week===0?' zero':'')+'">'+anNum(cd.week)+'</span></td>';
+      h+='<td class="r"><span class="an-num'+(cd.month===0?' zero':'')+'">'+anNum(cd.month)+'</span></td>';
+      h+='<td class="r"><span class="an-num'+(cd.total===0?' zero':'')+'">'+anNum(cd.total)+(SHOW_VOL?'<span style="color:var(--ink3);font-weight:400;"> / '+anNum(cd.plan)+'</span>':'')+'</span></td></tr>';
     });
     idx++;
   });
