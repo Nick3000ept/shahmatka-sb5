@@ -31,6 +31,7 @@ git push origin master
   script.gs         ← Apps Script бэкенд
   appsscript.json   ← настройки GAS (webapp, oauthScopes)
   CLAUDE.md         ← этот файл
+  DOMAIN.md         ← доменная модель: сущности, связи, правила
   .gitignore        ← исключает .clasp.json
   Приложения/       ← исходные файлы объёмов (.xls), в git не нужны
 ```
