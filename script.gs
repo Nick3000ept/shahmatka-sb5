@@ -7,6 +7,7 @@ const SPREADSHEET_ID = '1Vm0W09F1QNvBi3RK0pWjBa2KB19pXXex9kkd9vHq8zk';
 const ADMIN_PASSWORD = 'adminACCB3';
 const SK_PASSWORD    = 'priemkaCB3';
 const TASKS_SHEET    = 'Поручения';
+const VOL_SHEET      = 'Объемы';
 
 const C = {
   ROW_ID    : 1,
@@ -115,6 +116,11 @@ function doGet(e) {
     if (action === 'getTasks')      return jsonOut(getTasks(p.all === '1'));
 
 
+    if (action === 'seedVolumes') {
+      if (p.pwd !== ADMIN_PASSWORD) return jsonOut({error: 'Нет прав'});
+      return jsonOut(seedVolumes_());
+    }
+
     if (action === 'checkPassword') {
       var pwd = p.pwd || '';
       if (pwd === ADMIN_PASSWORD) return jsonOut({ok: true, role: 'admin'});
@@ -140,6 +146,7 @@ function doPost(e) {
 
     if (body.action === 'saveRow') {
       saveOneRow(body);
+      if (body.fact !== undefined) saveVolFacts_([{rowId: body.rowId, fact: body.fact}], body.author);
       clearCache();
       return jsonOut({ok: true});
     }
@@ -150,6 +157,7 @@ function doPost(e) {
       var sheet = findSheet(ss);
       if (!sheet) return jsonOut({error: 'Лист не найден'});
 
+      var savedVol = 0;
       var lock = LockService.getScriptLock();
       lock.waitLock(15000);
       try {
@@ -209,11 +217,20 @@ function doPost(e) {
           SpreadsheetApp.flush();
         }
 
+        // Факт по объёмам — в отдельный лист «Объемы» (лист «Факт» не затрагивается)
+        var volItems = rows.filter(function(r) { return r.fact !== undefined; })
+                           .map(function(r) { return {rowId: r.rowId, fact: r.fact}; });
+        if (volItems.length) {
+          var vAuthor = '';
+          for (var vi = 0; vi < rows.length; vi++) { if (rows[vi].author) { vAuthor = rows[vi].author; break; } }
+          savedVol = saveVolFacts_(volItems, vAuthor);
+        }
+
         clearCache();
       } finally {
         lock.releaseLock();
       }
-      return jsonOut({ok: true, saved: changedIndices.length, requested: rows.length});
+      return jsonOut({ok: true, saved: changedIndices.length, savedVol: savedVol, requested: rows.length});
     }
 
     if (body.action === 'addProtocol') {
@@ -236,6 +253,124 @@ function doPost(e) {
   } catch (err) {
     return jsonOut({error: err.toString()});
   }
+}
+
+// ─── ОБЪЁМЫ ────────────────────────────────────────────────────────
+// Лист «Объемы»: A=rowId | B=Корпус | C=Этаж | D=Работа | E=Ед.изм. | F=Объём итого |
+// G=Факт | H=Изменено | I=Автор
+// Сайт пишет ТОЛЬКО G-I. A-F — справочные: заполняются вручную или разовой заливкой.
+// Лист «Факт» при вводе факта не трогаем нигде, кроме столбца K (процент) — как и раньше.
+const VOL = {ROW_ID: 1, CORPUS: 2, FLOOR: 3, WORK: 4, UNIT: 5, TOTAL: 6, FACT: 7, DATE_CHG: 8, AUTHOR: 9};
+
+function ensureVolSheet_() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sh = ss.getSheetByName(VOL_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(VOL_SHEET);
+    sh.getRange(1, 1, 1, 9).setValues([['rowId', 'Корпус', 'Этаж', 'Работа', 'Ед.изм.', 'Объём итого', 'Факт', 'Изменено', 'Автор']]);
+    sh.setFrozenRows(1);
+    sh.setColumnWidth(1, 90); sh.setColumnWidth(4, 260);
+  }
+  return sh;
+}
+
+// Число из пользовательского ввода: "25,5" → 25.5; мусор → null
+function volNum_(v) {
+  if (v === undefined || v === null || String(v).trim() === '') return null;
+  var n = parseFloat(String(v).replace(/\s/g, '').replace(',', '.'));
+  return isNaN(n) ? null : n;
+}
+
+function getVolMap() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get('sb5_vol_map');
+  if (cached) { try { return JSON.parse(cached); } catch(e) {} }
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sh = ss.getSheetByName(VOL_SHEET);
+  var map = {};
+  if (sh) {
+    var lastRow = sh.getLastRow();
+    if (lastRow >= 2) {
+      var vals = sh.getRange(2, 1, lastRow - 1, 9).getValues();
+      vals.forEach(function(r) {
+        var id = String(r[VOL.ROW_ID - 1]).trim();
+        if (!id) return;
+        map[id] = {
+          unit : String(r[VOL.UNIT  - 1]).trim(),
+          total: String(r[VOL.TOTAL - 1]).trim(),
+          fact : String(r[VOL.FACT  - 1]).trim()
+        };
+      });
+    }
+  }
+  try { cache.put('sb5_vol_map', JSON.stringify(map), 7200); } catch(e) {}
+  return map;
+}
+
+// Запись факта: [{rowId, fact}], возвращает число записанных строк
+function saveVolFacts_(items, author) {
+  if (!items || !items.length) return 0;
+  var sh = ensureVolSheet_();
+  var lastRow = sh.getLastRow();
+  if (lastRow < 2) return 0;
+
+  var ids = sh.getRange(2, VOL.ROW_ID, lastRow - 1, 1).getValues();
+  var map = {};
+  ids.forEach(function(r, i) { var id = String(r[0]).trim(); if (id) map[id] = i + 2; });
+
+  var nowStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd.MM.yyyy');
+  var n = 0;
+  items.forEach(function(it) {
+    var rowNum = map[String(it.rowId)];
+    if (!rowNum) return; // объёма для этой работы нет — факт писать некуда
+    var num = volNum_(it.fact);
+    sh.getRange(rowNum, VOL.FACT, 1, 3).setValues([[num === null ? '' : num, nowStr, safeCell_(author || '')]]);
+    n++;
+  });
+  if (n) SpreadsheetApp.flush();
+  return n;
+}
+
+
+// ═══ РАЗОВАЯ ЗАЛИВКА ОБЪЁМОВ (конвекторы). Удалить после подтверждения цифр ═══
+// Источник: файлы «таблица конвекторов (все этажи Корпус N).xls», столбец SPL.
+// 1-й этаж не учитываем — в шахматке его нет.
+function seedVolumes_() {
+  var WORK = 'Монтаж конвекторов';
+  var UNIT = 'шт';
+  var QTY = {"К1": {"2": 34, "3": 33, "4": 30, "5": 32, "6": 31, "7": 32, "8": 33, "9": 32, "10": 33, "11": 32, "12": 31, "13": 33, "14": 34, "15": 22}, "К2": {"2": 34, "3": 34, "4": 31, "5": 31, "6": 30, "7": 30, "8": 31, "9": 32, "10": 32, "11": 31, "12": 31, "13": 32, "14": 34, "15": 22}, "К3": {"2": 34, "3": 33, "4": 31, "5": 31, "6": 31, "7": 32, "8": 32, "9": 32, "10": 32, "11": 32, "12": 32, "13": 35, "14": 34, "15": 22}, "К4": {"2": 34, "3": 34, "4": 31, "5": 31, "6": 30, "7": 30, "8": 32, "9": 32, "10": 32, "11": 31, "12": 31, "13": 32, "14": 34, "15": 22}, "К5": {"2": 32, "3": 33, "4": 31, "5": 32, "6": 32, "7": 34, "8": 34, "9": 34, "10": 33, "11": 33, "12": 31, "13": 33, "14": 34, "15": 23}};
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var fact = ss.getSheetByName(SHEET_NAME);
+  var lastRow = fact.getLastRow();
+  var vals = fact.getRange(2, 1, lastRow - 1, 6).getValues();
+
+  var sh = ensureVolSheet_();
+  var have = {};
+  var vLast = sh.getLastRow();
+  if (vLast >= 2) {
+    sh.getRange(2, 1, vLast - 1, 1).getValues().forEach(function(r) {
+      var id = String(r[0]).trim(); if (id) have[id] = true;
+    });
+  }
+
+  var out = [], skipped = [];
+  vals.forEach(function(r) {
+    var rowId  = String(r[0]).trim();
+    var corpus = String(r[1]).trim();
+    var floor  = String(r[2]).trim().replace(',', '.');
+    var work   = String(r[5]).trim();
+    if (work !== WORK || !rowId || have[rowId]) return;
+    var fl = String(parseInt(parseFloat(floor), 10));
+    var q = QTY[corpus] && QTY[corpus][fl];
+    if (q === undefined) { skipped.push(corpus + '/' + fl); return; }
+    out.push([rowId, corpus, parseFloat(fl), WORK, UNIT, q, '', '', '']);
+  });
+
+  if (out.length) sh.getRange(sh.getLastRow() + 1, 1, out.length, 9).setValues(out);
+  clearCache();
+  return {added: out.length, skipped: skipped};
 }
 
 function getWorkDict() {
@@ -279,6 +414,7 @@ function getRows(filterCorpus) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return {rows: []};
   var dict = getWorkDict();
+  var volMap = getVolMap();
   var values = sheet.getRange(2, 1, lastRow - 1, 20).getValues();
   var rows = [];
   for (var i = 0; i < values.length; i++) {
@@ -290,6 +426,7 @@ function getRows(filterCorpus) {
     if (filterCorpus && corpus !== filterCorpus) continue;
     var rowId = String(row[0]).trim() || ('row_' + (i + 2));
     var attrs = dict[work] || {place: '', lvl1: '', lvl2: '', kp: '', factNum: ''};
+    var vol = volMap[rowId] || null;
     rows.push({
       rowId      : rowId,
       corpus     : corpus,
@@ -310,8 +447,9 @@ function getRows(filterCorpus) {
       factNum    : attrs.factNum,
       baseDate   : formatDateOut(row[14]),
       currentDate: formatDateOut(row[15]),
-      volume     : String(row[16]).trim(),
-      unit       : String(row[17]).trim(),
+      volume     : vol ? vol.total : String(row[16]).trim(),
+      unit       : vol ? vol.unit  : String(row[17]).trim(),
+      fact       : vol ? vol.fact  : '',
       idFact     : String(row[19]).trim()
     });
   }
@@ -618,6 +756,7 @@ function clearCache() {
     var cache = CacheService.getScriptCache();
     cache.remove('sb5_rows_all');
     cache.remove('sb5_work_dict');
+    cache.remove('sb5_vol_map');
     cache.remove('sb5_checklists');
     cache.remove('sb5_staffing');
     ['К1','К2','К3','К4','К5','К6','К7','К8','К9','К10','К11','К12'].forEach(function(c) {

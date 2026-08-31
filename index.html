@@ -465,6 +465,14 @@ td.cell.s-empty .c-bar-fill{background:#94a3b8;}
 
 /* Слайдер */
 .pct-row{display:flex;align-items:center;gap:8px;}
+.vol-row{display:flex;align-items:center;gap:8px;}
+.vol-total{font-size:12px;color:var(--ink2);white-space:nowrap;}
+.vol-total strong{color:var(--ink);font-family:var(--mono);}
+.vol-inp{width:88px;padding:5px 8px;border:1px solid var(--brd2);border-radius:6px;font-family:var(--mono);font-size:13px;outline:none;}
+.vol-inp:focus{border-color:var(--acc);}
+.vol-pct{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--acc);min-width:44px;text-align:right;}
+.vol-pct.over{color:var(--red);}
+.vol-warn{margin-top:5px;font-size:11px;color:var(--red);}
 .pct-sl{flex:1;-webkit-appearance:none;height:3px;background:var(--brd2);border-radius:2px;outline:none;cursor:pointer;}
 .pct-sl::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--acc);border:2px solid #fff;cursor:pointer;box-shadow:0 0 0 2px rgba(37,99,235,.2);transition:transform .1s;}
 .pct-sl::-webkit-slider-thumb:hover{transform:scale(1.2);}
@@ -565,6 +573,10 @@ td.cell.s-empty .c-bar-fill{background:#94a3b8;}
     <input type="checkbox" id="foverdue" onchange="FOVERDUE=this.checked;render();">
     Просрочено
   </label>
+  <label class="chk-lbl">
+    <input type="checkbox" id="fvol" onchange="SHOW_VOL=this.checked;render();">
+    Объемы
+  </label>
   <div class="fsep"></div>
   <span class="fl" style="font-size:11px;">Пресеты:</span>
   <div id="preset-chips" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
@@ -652,6 +664,16 @@ td.cell.s-empty .c-bar-fill{background:#94a3b8;}
         <button class="sc sk-hidden" id="sc-remarks"  onclick="selSt('s-remarks')"><span class="sc-dot" style="background:var(--red)"></span>Замечания</button>
         <button class="sc full sk-hidden" id="sc-empty" onclick="selSt('s-empty')"><span class="sc-dot" style="background:var(--ink3)"></span>Нет данных</button>
       </div>
+    </div>
+    <div class="fg" id="fg-vol" style="display:none">
+      <div class="fg-lbl">Объём</div>
+      <div class="vol-row">
+        <div class="vol-total">Итого: <strong id="vol-total-val">—</strong></div>
+        <input type="text" class="vol-inp" id="vol-fact" inputmode="decimal" placeholder="факт"
+          oninput="volFactInput()" autocomplete="off">
+        <div class="vol-pct" id="vol-pct">—</div>
+      </div>
+      <div class="vol-warn" id="vol-warn" style="display:none">Факт больше объёма итого — проверьте объём</div>
     </div>
     <div class="fg sk-hidden">
       <div class="fg-lbl">Процент готовности</div>
@@ -791,6 +813,7 @@ var CELL_MAP = new Map();    // rowId → td element, перестраивает
 var FLOOR_ROW_MAP = new Map(); // floor → [rowId], перестраивается в render()
 var ROWS_MAP = new Map();    // rowId → row object, перестраивается при loadData()
 
+var _factTouched=false, _volTotal='';
 var FC=new Set(), FO='', FW=new Set(), FM='', FL1='', FL2='', FKP=false, FSTATUS=new Set(), SHOW_SP=false, FDATE='', FMOD=false, FLOOR_READINESS=false, SHOW_VOL=false, FPLAN7=false, FPLAN30=false, FOVERDUE=false, SHOW_CL=false, SHOW_EMPTY=false;
 var CHECK_LISTS=[], CL_MAP={}, STAFFING_DATA=[];
 var WORKS=[];
@@ -1323,6 +1346,8 @@ function render(){
     if(FL2&&r.lvl2!==FL2) return false;
     if(FW.size>0&&!FW.has(r.work)) return false;
     if(FKP&&!r.kp) return false;
+    // Режим объёмов: показываем только работы, для которых объём задан
+    if(SHOW_VOL&&!String(r.volume||'').trim()) return false;
     if(FSTATUS.size>0){var _fst=MOD[r.rowId]&&MOD[r.rowId].status!==undefined?MOD[r.rowId].status:(S2CSS[r.status||'']||'s-empty');if(!FSTATUS.has(_fst))return false;}
     if(FMOD&&!MOD[r.rowId]) return false;
     // Фильтр по дате: показываем строку если хотя бы одна из дат <= указанной
@@ -1623,8 +1648,16 @@ function render(){
             +' / <span style="color:'+(_clAcc>0?'var(--green)':'var(--ink3)')+'" title="Принято Северин">'+_clAcc+'</span>'
             +'</div>';
       } else if(SHOW_VOL){
-        var vol=(row.volume||'—')+(row.unit?' '+row.unit:'');
-        cellContent='<div class="c-date" style="font-size:10px;text-align:center;width:100%;">'+e(vol)+'</div>';
+        var _vt=volNum(row.volume);
+        var _mf=MOD[rowId]&&MOD[rowId].fact!==undefined?MOD[rowId].fact:row.fact;
+        var _vf=volNum(_mf);
+        var _over=_vt!==null&&_vf!==null&&_vf>_vt;
+        var _left=_vf===null?'—':volFmt(_vf);
+        var _right=_vt===null?'—':volFmt(_vt);
+        cellContent='<div class="c-date" style="font-size:11px;text-align:center;width:100%;font-family:var(--mono);">'
+          +'<span style="color:'+(_over?'var(--red)':(_vf?'var(--green)':'var(--ink3)'))+';font-weight:700;">'+_left+'</span>'
+          +'<span style="color:var(--ink3);"> / </span>'+_right
+          +'</div>';
       } else if(SHOW_SP){
         cellContent='<div class="c-date sp">'+(row.org||mod&&mod.org?dl:'<span style="color:var(--ink3)">—</span>')+'</div>';
       } else if(showFactOnly){
@@ -1684,10 +1717,13 @@ function renderSB(rows){
     var mod=MOD[r.rowId];
     var s=mod&&mod.status!==undefined?mod.status:(S2CSS[r.status||'']||'s-empty');
     cnt[s]=(cnt[s]||0)+1;
-    var v=parseFloat(String(r.volume||'').replace(',','.'));
-    if(!isNaN(v)){
+    var v=volNum(r.volume);
+    if(v!==null){
       volTotal+=v;
-      if(s==='s-done') volDone+=v;
+      var mf=mod&&mod.fact!==undefined?mod.fact:r.fact;
+      var f=volNum(mf);
+      // Факт не введён, но работа закрыта — считаем выполненным весь объём
+      volDone+=f!==null?f:(s==='s-done'?v:0);
     }
   });
   var done=cnt['s-done'];
@@ -1952,6 +1988,46 @@ function msCommit(){
   toast('Изменения готовы к сохранению. Нажмите 💾','inf',2000);
 }
 
+// ─── ОБЪЁМЫ ───────────────────────────────────────────────────────
+// Число из ячейки/поля: "25,5" → 25.5, пусто или мусор → null
+function volNum(v){
+  if(v===undefined||v===null) return null;
+  var t=String(v).trim();
+  if(!t) return null;
+  var n=parseFloat(t.replace(/\s/g,'').replace(',','.'));
+  return isNaN(n)?null:n;
+}
+// Короткий вид числа: 34 → «34», 25.5 → «25,5»
+function volFmt(n){
+  if(n===null||n===undefined) return '—';
+  return (Math.round(n*100)/100).toString().replace('.',',');
+}
+// Процент готовности по объёму: факт ÷ итого, 0–100 (сверх 100 обрезаем)
+function volPctOf(fact,total){
+  var f=volNum(fact), t=volNum(total);
+  if(f===null||t===null||t<=0) return null;
+  return Math.min(100,Math.max(0,Math.round(f/t*100)));
+}
+
+// Ввод факта в карточке: пересчитываем процент и двигаем ползунок
+function volFactInput(){
+  _factTouched=true;
+  var total=volNum(_volTotal);
+  var f=volNum(document.getElementById('vol-fact').value);
+  var el=document.getElementById('vol-pct');
+  var warn=document.getElementById('vol-warn');
+  var over=total!==null&&f!==null&&f>total;
+  warn.style.display=over?'':'none';
+  el.classList.toggle('over',over);
+  if(f===null||total===null||total<=0){ el.textContent='—'; return; }
+  var real=Math.round(f/total*100);
+  el.textContent=real+'%';
+  var pct=Math.min(100,Math.max(0,real));
+  // Процент округляем до шага ползунка (5%), 100% ставим точно
+  var slPct=pct>=100?100:Math.round(pct/5)*5;
+  setPct(slPct);
+}
+
 // ─── POPOVER ──────────────────────────────────────────────────────
 function openPanel(rowId, anchorEl){
   var row=ROWS_MAP.get(rowId);
@@ -2001,6 +2077,31 @@ function openPanel(rowId, anchorEl){
   var contractor=mod.org!==undefined?mod.org:(row.org||'');
   renderContractorSelect(contractor);
 
+  // Объём: поле факта — только при выборе одной ячейки, только если объём задан,
+  // и только тем, кто вправе вносить факт (администратор и подрядчик, не стройконтроль)
+  var volBlock=document.getElementById('fg-vol');
+  var canFact=(IS_ADMIN||!!CONTRACTOR)&&!(IS_SK&&!IS_ADMIN);
+  _volTotal=row.volume||'';
+  var volShow=!isMulti&&canFact&&volNum(_volTotal)!==null;
+  volBlock.style.display=volShow?'':'none';
+  if(!volShow) document.getElementById('vol-fact').value='';
+  document.getElementById('vol-warn').style.display='none';
+  document.getElementById('vol-pct').classList.remove('over');
+  if(volShow){
+    document.getElementById('vol-total-val').textContent=volFmt(volNum(_volTotal))+(row.unit?' '+row.unit:'');
+    var curFact=mod.fact!==undefined?mod.fact:(row.fact||'');
+    document.getElementById('vol-fact').value=curFact===''?'':volFmt(volNum(curFact));
+    var fn=volNum(curFact), tn=volNum(_volTotal);
+    var pe=document.getElementById('vol-pct');
+    if(fn===null||tn===null||tn<=0){ pe.textContent='—'; }
+    else {
+      var realPct=Math.round(fn/tn*100);
+      pe.textContent=realPct+'%';
+      if(fn>tn){ pe.classList.add('over'); document.getElementById('vol-warn').style.display=''; }
+    }
+  }
+
+  _factTouched=false;
   _pctTouched=false;
   _dateTouched=false;
   _statusTouched=false;
@@ -2087,6 +2188,13 @@ function savePanel(){
   }
   var pctSlider=parseInt(document.getElementById('pct-sl').value)||0;
   var pctVal=(pctSlider/100).toFixed(2).replace('.',',');
+  var factRaw=document.getElementById('vol-fact').value.trim();
+  // Факт введён вручную — процент считаем от объёма точно, без шага ползунка
+  if(_factTouched&&CUR){
+    var _fp=volPctOf(factRaw,_volTotal);
+    if(_fp!==null){ pctSlider=_fp; pctVal=(_fp/100).toFixed(2).replace('.',','); _pctTouched=true; }
+    else if(factRaw===''){ /* факт стёрли — процент не трогаем */ }
+  }
   var d=document.getElementById('p-date').value;
   var dateEnd=d?fmtDate(d):'';
   var comment=document.getElementById('p-comment').value.trim();
@@ -2100,6 +2208,7 @@ function savePanel(){
     // Пишем только явно изменённые поля — защита от случайной перезаписи
     if(_statusTouched)     MOD[rid].status=CUR_ST;
     if(_pctTouched)        MOD[rid].pct=pctVal;
+    if(_factTouched)       MOD[rid].fact=factRaw;
     if(_dateTouched)       MOD[rid].dateEnd=dateEnd;
     if(_commentTouched)    MOD[rid].comment=comment;
     if(_contractorTouched) MOD[rid].org=contractor;
@@ -2148,6 +2257,7 @@ async function batchSave(rowIds){
     if(mod.dateEnd!==undefined)p.dateEnd=mod.dateEnd;
     if(mod.comment!==undefined)p.comment=mod.comment;
     if(mod.org!==undefined)    p.org=mod.org;
+    if(mod.fact!==undefined)   p.fact=mod.fact;
     return p;
   });
   try{
@@ -2158,6 +2268,10 @@ async function batchSave(rowIds){
     if(!j.ok) throw new Error(j.error||'Ошибка');
     if(j.saved!==undefined&&j.requested!==undefined&&j.saved<j.requested){
       toast('Внимание: '+(j.requested-j.saved)+' строк не найдено в таблице — проверьте данные','err',7000);
+    }
+    var _factCnt=payload.filter(function(x){return x.fact!==undefined;}).length;
+    if(_factCnt&&j.savedVol!==undefined&&j.savedVol<_factCnt){
+      toast('Факт по '+(_factCnt-j.savedVol)+' работам не записан: для них не задан объём итого','err',7000);
     }
 
     var _rowMap=new Map(ROWS.map(r=>[r.rowId,r]));
@@ -2170,6 +2284,7 @@ async function batchSave(rowIds){
         if(mod.dateEnd!==undefined) row.dateEnd=mod.dateEnd;
         if(mod.comment!==undefined) row.comment=mod.comment;
         if(mod.org!==undefined) row.org=mod.org;
+        if(mod.fact!==undefined) row.fact=mod.fact;
         row.dateChg=new Date().toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'});
         row.author=AUTHOR;
       }
