@@ -9,6 +9,7 @@ const SK_PASSWORD    = 'priemkaCB3';
 const TASKS_SHEET    = 'Поручения';
 const VOL_SHEET      = 'Объемы';
 const VOL_HIST_SHEET = 'Объемы_история';
+const PRESETS_SHEET  = 'Пресеты';
 
 const C = {
   ROW_ID    : 1,
@@ -115,6 +116,7 @@ function doGet(e) {
     if (action === 'getStaffing')   return jsonOut(getStaffing());
     if (action === 'getProtocol')   return jsonOut(getProtocol());
     if (action === 'getTasks')      return jsonOut(getTasks(p.all === '1'));
+    if (action === 'getSysPresets') return jsonOut(getSysPresets());
 
 
     if (action === 'seedVolumes') {
@@ -239,6 +241,17 @@ function doPost(e) {
       return jsonOut({ok: true});
     }
 
+    // Общие пресеты фильтров — менять может только администратор
+    if (body.action === 'saveSysPreset') {
+      if (body.pwd !== ADMIN_PASSWORD) return jsonOut({error: 'Нет прав'});
+      return jsonOut(saveSysPreset(body));
+    }
+
+    if (body.action === 'deleteSysPreset') {
+      if (body.pwd !== ADMIN_PASSWORD) return jsonOut({error: 'Нет прав'});
+      return jsonOut(deleteSysPreset(body));
+    }
+
     // Поручения — создание и правка только под паролем администратора
     if (body.action === 'addTasks') {
       if (body.pwd !== ADMIN_PASSWORD) return jsonOut({error: 'Нет прав'});
@@ -254,6 +267,76 @@ function doPost(e) {
   } catch (err) {
     return jsonOut({error: err.toString()});
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// СИСТЕМНЫЕ ПРЕСЕТЫ (лист «Пресеты», создаётся автоматически)
+// Общие пресеты фильтров: видны всем пользователям, менять и удалять может
+// только администратор (проверка пароля в doPost). Столбцы:
+// A=Название | B=Настройки (JSON: corpus/org/place/lvl1/lvl2/works/kp) | C=Обновлён
+// «Удаление» — очистка ячеек строки, не deleteRow (строки листов скриптом не удаляем);
+// пустые строки при чтении пропускаются.
+// ═══════════════════════════════════════════════════════════════════
+function ensurePresetsSheet_() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(PRESETS_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(PRESETS_SHEET);
+    sheet.appendRow(['Название', 'Настройки (JSON)', 'Обновлён']);
+    sheet.setFrozenRows(1);
+    sheet.setColumnWidth(1, 180); sheet.setColumnWidth(2, 420);
+  }
+  return sheet;
+}
+
+function findPresetRow_(sheet, name) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  var names = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (var i = 0; i < names.length; i++) {
+    if (String(names[i][0]).trim() === name) return i + 2;
+  }
+  return 0;
+}
+
+function getSysPresets() {
+  var sheet = ensurePresetsSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return {presets: {}};
+  var values = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+  var presets = {};
+  values.forEach(function(row) {
+    var name = String(row[0]).trim();
+    if (!name) return;
+    try { presets[name] = JSON.parse(String(row[1])); } catch (e) {}
+  });
+  return {presets: presets};
+}
+
+function saveSysPreset(body) {
+  var name = String(body.name || '').trim().slice(0, 40);
+  if (!name) return {error: 'Укажите название'};
+  if (!body.cfg || typeof body.cfg !== 'object') return {error: 'Нет настроек пресета'};
+  var json = JSON.stringify(body.cfg);
+  if (json.length > 5000) return {error: 'Слишком большой пресет'};
+  var sheet = ensurePresetsSheet_();
+  var nowStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd.MM.yyyy HH:mm');
+  var rowIdx = findPresetRow_(sheet, name);
+  if (rowIdx) sheet.getRange(rowIdx, 1, 1, 3).setValues([[safeCell_(name), json, nowStr]]);
+  else sheet.appendRow([safeCell_(name), json, nowStr]);
+  SpreadsheetApp.flush();
+  return {ok: true};
+}
+
+function deleteSysPreset(body) {
+  var name = String(body.name || '').trim();
+  if (!name) return {error: 'Укажите название'};
+  var sheet = ensurePresetsSheet_();
+  var rowIdx = findPresetRow_(sheet, name);
+  if (!rowIdx) return {error: 'Пресет не найден'};
+  sheet.getRange(rowIdx, 1, 1, 3).setValues([['', '', '']]);
+  SpreadsheetApp.flush();
+  return {ok: true};
 }
 
 // ─── ЖУРНАЛ ОБЪЁМОВ ────────────────────────────────────────────────
