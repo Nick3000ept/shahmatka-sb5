@@ -74,81 +74,6 @@ function doGet(e) {
       return jsonOut({sheetName: SHEET_NAME, lastRow: lastRow, totalRows: total, passedFilter: passed, sheets: sheets, sample: sample});
     }
 
-    // ВРЕМЕННО для диагностики привязки листа «Объемы» (удалить после)
-    if (action === 'debugVol') {
-      var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-      var factSheet = ss.getSheetByName(SHEET_NAME);
-      var factIds = {};
-      var flr = factSheet.getLastRow();
-      if (flr > 1) {
-        factSheet.getRange(2, 1, flr - 1, 1).getValues().forEach(function(r) {
-          var id = String(r[0]).trim();
-          if (id) factIds[id] = true;
-        });
-      }
-      var sh = ss.getSheetByName(VOL_SHEET);
-      if (!sh) return jsonOut({error: 'Лист Объемы не найден'});
-      var lastRow = sh.getLastRow();
-      var byWork = {};
-      var emptyId = 0, badId = 0, noTotal = 0, total = 0;
-      var badSample = [];
-      if (lastRow > 1) {
-        sh.getRange(2, 1, lastRow - 1, 9).getValues().forEach(function(r, i) {
-          var id = String(r[0]).trim();
-          var work = String(r[3]).trim();
-          var hasAny = r.some(function(v) { return String(v).trim() !== ''; });
-          if (!hasAny) return;
-          total++;
-          var w = byWork[work || '(без названия)'] = byWork[work || '(без названия)'] || {n: 0, linked: 0};
-          w.n++;
-          if (!id) { emptyId++; if (badSample.length < 5) badSample.push({row: i + 2, why: 'пустой rowId', work: work}); return; }
-          if (!factIds[id]) { badId++; if (badSample.length < 5) badSample.push({row: i + 2, why: 'rowId нет в Факте', id: id.slice(0, 30), work: work}); return; }
-          if (String(r[5]).trim() === '') noTotal++;
-          w.linked++;
-        });
-      }
-      return jsonOut({volLastRow: lastRow, rowsFilled: total, emptyId: emptyId, idNotInFact: badId, linkedNoTotal: noTotal, byWork: byWork, badSample: badSample});
-    }
-
-    // ВРЕМЕННО: разовая привязка строк «Объемов» без rowId к строкам «Факта»
-    // по корпусу+этажу+работе (удалить вместе с debugVol после подтверждения)
-    if (action === 'backfillVolIds') {
-      if (p.pwd !== ADMIN_PASSWORD) return jsonOut({error: 'Нет прав'});
-      var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-      var factSheet = ss.getSheetByName(SHEET_NAME);
-      var flr = factSheet.getLastRow();
-      var factMap = {};
-      if (flr > 1) {
-        factSheet.getRange(2, 1, flr - 1, 6).getValues().forEach(function(r) {
-          var id = String(r[0]).trim();
-          var corpus = String(r[1]).trim();
-          var floor = parseFloat(String(r[2]).replace(',', '.'));
-          var work = String(r[5]).trim();
-          if (!id || !corpus || isNaN(floor) || !work) return;
-          factMap[corpus + '|' + floor + '|' + work] = id;
-        });
-      }
-      var sh = ss.getSheetByName(VOL_SHEET);
-      if (!sh) return jsonOut({error: 'Лист Объемы не найден'});
-      var lastRow = sh.getLastRow();
-      var filled = 0, unmatched = [];
-      if (lastRow > 1) {
-        var vals = sh.getRange(2, 1, lastRow - 1, 4).getValues();
-        vals.forEach(function(r, i) {
-          if (String(r[0]).trim() !== '') return; // rowId уже есть — не трогаем
-          var corpus = String(r[1]).trim();
-          var floor = parseFloat(String(r[2]).replace(',', '.'));
-          var work = String(r[3]).trim();
-          if (!corpus && !work) return; // пустая строка
-          var id = factMap[corpus + '|' + floor + '|' + work];
-          if (id) { sh.getRange(i + 2, 1).setValue(id); filled++; }
-          else if (unmatched.length < 10) unmatched.push({row: i + 2, corpus: corpus, floor: String(r[2]), work: work});
-        });
-      }
-      clearCache();
-      return jsonOut({filled: filled, unmatched: unmatched});
-    }
-
     // ВРЕМЕННО для диагностики раздутого листа (удалить после)
     if (action === 'debugFar') {
       var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -192,12 +117,6 @@ function doGet(e) {
     if (action === 'getProtocol')   return jsonOut(getProtocol());
     if (action === 'getTasks')      return jsonOut(getTasks(p.all === '1'));
     if (action === 'getSysPresets') return jsonOut(getSysPresets());
-
-
-    if (action === 'seedVolumes') {
-      if (p.pwd !== ADMIN_PASSWORD) return jsonOut({error: 'Нет прав'});
-      return jsonOut(seedVolumes_());
-    }
 
     if (action === 'checkPassword') {
       var pwd = p.pwd || '';
@@ -481,7 +400,8 @@ function volSumDays_(list, days) {
 // ─── ОБЪЁМЫ ────────────────────────────────────────────────────────
 // Лист «Объемы»: A=rowId | B=Корпус | C=Этаж | D=Работа | E=Ед.изм. | F=Объём итого |
 // G=Факт | H=Изменено | I=Автор
-// Сайт пишет ТОЛЬКО G-I. A-F — справочные: заполняются вручную или разовой заливкой.
+// Сайт пишет ТОЛЬКО G-I. B-F заполняются вручную; A (rowId) считает ARRAYFORMULA
+// в ячейке A2 листа — НИКОГДА не писать в столбец A скриптом, это сломает формулу.
 // Лист «Факт» при вводе факта не трогаем нигде, кроме столбца K (процент) — как и раньше.
 const VOL = {ROW_ID: 1, CORPUS: 2, FLOOR: 3, WORK: 4, UNIT: 5, TOTAL: 6, FACT: 7, DATE_CHG: 8, AUTHOR: 9};
 
@@ -568,46 +488,6 @@ function saveVolFacts_(items, author) {
   return n;
 }
 
-
-// ═══ РАЗОВАЯ ЗАЛИВКА ОБЪЁМОВ (конвекторы). Удалить после подтверждения цифр ═══
-// Источник: файлы «таблица конвекторов (все этажи Корпус N).xls», столбец SPL.
-// 1-й этаж не учитываем — в шахматке его нет.
-function seedVolumes_() {
-  var WORK = 'Монтаж конвекторов';
-  var UNIT = 'шт';
-  var QTY = {"К1": {"2": 34, "3": 33, "4": 30, "5": 32, "6": 31, "7": 32, "8": 33, "9": 32, "10": 33, "11": 32, "12": 31, "13": 33, "14": 34, "15": 22}, "К2": {"2": 34, "3": 34, "4": 31, "5": 31, "6": 30, "7": 30, "8": 31, "9": 32, "10": 32, "11": 31, "12": 31, "13": 32, "14": 34, "15": 22}, "К3": {"2": 34, "3": 33, "4": 31, "5": 31, "6": 31, "7": 32, "8": 32, "9": 32, "10": 32, "11": 32, "12": 32, "13": 35, "14": 34, "15": 22}, "К4": {"2": 34, "3": 34, "4": 31, "5": 31, "6": 30, "7": 30, "8": 32, "9": 32, "10": 32, "11": 31, "12": 31, "13": 32, "14": 34, "15": 22}, "К5": {"2": 32, "3": 33, "4": 31, "5": 32, "6": 32, "7": 34, "8": 34, "9": 34, "10": 33, "11": 33, "12": 31, "13": 33, "14": 34, "15": 23}};
-
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  var fact = ss.getSheetByName(SHEET_NAME);
-  var lastRow = fact.getLastRow();
-  var vals = fact.getRange(2, 1, lastRow - 1, 6).getValues();
-
-  var sh = ensureVolSheet_();
-  var have = {};
-  var vLast = sh.getLastRow();
-  if (vLast >= 2) {
-    sh.getRange(2, 1, vLast - 1, 1).getValues().forEach(function(r) {
-      var id = String(r[0]).trim(); if (id) have[id] = true;
-    });
-  }
-
-  var out = [], skipped = [];
-  vals.forEach(function(r) {
-    var rowId  = String(r[0]).trim();
-    var corpus = String(r[1]).trim();
-    var floor  = String(r[2]).trim().replace(',', '.');
-    var work   = String(r[5]).trim();
-    if (work !== WORK || !rowId || have[rowId]) return;
-    var fl = String(parseInt(parseFloat(floor), 10));
-    var q = QTY[corpus] && QTY[corpus][fl];
-    if (q === undefined) { skipped.push(corpus + '/' + fl); return; }
-    out.push([rowId, corpus, parseFloat(fl), WORK, UNIT, q, '', '', '']);
-  });
-
-  if (out.length) sh.getRange(sh.getLastRow() + 1, 1, out.length, 9).setValues(out);
-  clearCache();
-  return {added: out.length, skipped: skipped};
-}
 
 function getWorkDict() {
   // CacheService: справочник работ кешируется на 2 часа (~20-36 КБ, хорошо укладывается в лимит 100 КБ/ключ)
