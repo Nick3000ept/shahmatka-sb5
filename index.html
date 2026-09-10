@@ -918,6 +918,7 @@ window.onload=function(){
   var z=parseInt(localStorage.getItem('sb5_zoom')||'100');
   ZOOM=z;
   applyZoom();
+  applyDateLimits();
   var a=localStorage.getItem('sb5_author')||'';
   if(a){AUTHOR=a;var ai=document.getElementById('author-inp');if(ai)ai.value=a;}
   BASE='https://script.google.com/macros/s/AKfycbwwI0viPG5JakbwFg-38kKE0Z_F0OpVCytFXqgI2qA6vY6bGXHR7hcJIkn5-gjh3JQW/exec';
@@ -2040,6 +2041,7 @@ function msCommit(){
   var hasChanges=MS_DRAFT.status!==null||MS_DRAFT.pct!==null||document.getElementById('ms-date').value||contrVal;
   if(!hasChanges){toast('Ничего не выбрано','inf');return;}
   var dateVal=document.getElementById('ms-date').value;
+  if(dateVal&&!dateInRange(dateVal)){toast(dateRangeMsg(),'err',5000);return;}
   var _td2=new Date(),_p2b=function(n){return n<10?'0'+n:String(n);};
   var _today2=_p2b(_td2.getDate())+'.'+_p2b(_td2.getMonth()+1)+'.'+_td2.getFullYear();
   SEL.forEach(rid=>{
@@ -2288,6 +2290,7 @@ function savePanel(){
     else if(factRaw===''){ /* факт стёрли — процент не трогаем */ }
   }
   var d=document.getElementById('p-date').value;
+  if(d&&!dateInRange(d)){toast(dateRangeMsg(),'err',5000);return;}
   var dateEnd=d?fmtDate(d):'';
   var comment=document.getElementById('p-comment').value.trim();
   var contractor=document.getElementById('p-contractor').value;
@@ -2360,6 +2363,10 @@ async function batchSave(rowIds){
     if(!j.ok) throw new Error(j.error||'Ошибка');
     if(j.saved!==undefined&&j.requested!==undefined&&j.saved<j.requested){
       toast('Внимание: '+(j.requested-j.saved)+' строк не найдено в таблице — проверьте данные','err',7000);
+    }
+    // Даты с недопустимым годом бэкенд не записывает (защита от опечаток вроде «2626»)
+    if((j.badDates||[]).length){
+      toast('⚠ '+j.badDates.length+' строк: '+dateRangeMsg()+' Дата не записана.','err',8000);
     }
     var _factCnt=payload.filter(function(x){return x.fact!==undefined;}).length;
     if(_factCnt&&j.savedVol!==undefined&&j.savedVol<_factCnt){
@@ -2485,6 +2492,24 @@ function toIso(d){
   if(/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
   if(/^\d{2}\.\d{2}\.\d{4}$/.test(d)){var p=d.split('.');return p[2]+'-'+p[1]+'-'+p[0];}
   return d;
+}
+// Ограничение года в дате (задача пользователя 2026-09-10): подрядчик ввёл «2626» год —
+// отчёты сломались. Разрешаем только 2020 … текущий год + 1. Проверка есть и на бэкенде.
+var DATE_MIN_Y=2020;
+function dateMaxY(){return new Date().getFullYear()+1;}
+function dateInRange(d){
+  var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(toIso(d));
+  if(!m) return false;
+  var y=parseInt(m[1],10);
+  return y>=DATE_MIN_Y&&y<=dateMaxY();
+}
+function dateRangeMsg(){return 'Год в дате должен быть от '+DATE_MIN_Y+' до '+dateMaxY()+'. Проверьте дату.';}
+function applyDateLimits(){
+  var lo=DATE_MIN_Y+'-01-01', hi=dateMaxY()+'-12-31';
+  ['p-date','ms-date'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el){el.min=lo;el.max=hi;}
+  });
 }
 function setSt(st,txt){var d=document.getElementById('sdot'),t=document.getElementById('stxt');d.className='sync-dot '+st;t.className='sync-txt '+st;t.textContent=txt;}
 function showLoader(txt){document.getElementById('loader').classList.add('on');document.getElementById('loader-txt').textContent=txt;}

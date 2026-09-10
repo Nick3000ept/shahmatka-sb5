@@ -44,6 +44,18 @@ function safeCell_(v) {
   return s;
 }
 
+// Проверка года в дате окончания (задача пользователя 2026-09-10): подрядчик ввёл «2626»
+// и сломал отчёты. Допустимо 2020 … текущий год + 1. Пустое значение = очистка ячейки, разрешено.
+// Дата с недопустимым годом НЕ записывается, строка возвращается в badDates[].
+function dateOk_(v) {
+  var s = String(v == null ? '' : v).trim();
+  if (!s) return true;
+  var m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(s);
+  if (!m) return false;
+  var y = parseInt(m[3], 10);
+  return y >= 2020 && y <= (new Date()).getFullYear() + 1;
+}
+
 function doGet(e) {
   try {
     var p = (e && e.parameter) ? e.parameter : {};
@@ -183,6 +195,7 @@ function doPost(e) {
         // Смещение: индекс в allValues = C.X - EDIT_START
         var off = EDIT_START; // 7
         var changedIndices = [];
+        var badDates = [];
         rows.forEach(function(r) {
           var idx = rowMap[String(r.rowId)];
           if (idx === undefined) return;
@@ -193,7 +206,10 @@ function doPost(e) {
           if (r.pct     !== undefined) { allValues[idx][C.PCT      - off] = r.pct     || ''; anyChange = true; }
           if (r.comment !== undefined) { allValues[idx][C.COMMENT  - off] = r.comment || ''; anyChange = true; }
           if (r.org     !== undefined) { allValues[idx][C.ORG      - off] = r.org     || ''; anyChange = true; }
-          if (r.dateEnd !== undefined) { allValues[idx][C.DATE_END - off] = r.dateEnd || ''; anyChange = true; }
+          if (r.dateEnd !== undefined) {
+            if (dateOk_(r.dateEnd)) { allValues[idx][C.DATE_END - off] = r.dateEnd || ''; anyChange = true; }
+            else badDates.push(String(r.rowId));
+          }
           if (r.author)                  allValues[idx][C.AUTHOR   - off] = r.author;
           // DATE_CHG только если действительно что-то изменилось
           if (anyChange) allValues[idx][C.DATE_CHG - off] = nowStr;
@@ -227,7 +243,7 @@ function doPost(e) {
       } finally {
         lock.releaseLock();
       }
-      return jsonOut({ok: true, saved: changedIndices.length, savedVol: savedVol, requested: rows.length});
+      return jsonOut({ok: true, saved: changedIndices.length, savedVol: savedVol, requested: rows.length, badDates: badDates});
     }
 
     if (body.action === 'addProtocol') {
@@ -610,7 +626,10 @@ function saveOneRow(data) {
   var off = EDIT_START; // 7 — смещение: индекс в rowValues = C.X - off
   var anyChange = false;
   if (data.status  !== undefined) { rowValues[C.STATUS   - off] = data.status  || ''; anyChange = true; }
-  if (data.dateEnd !== undefined) { rowValues[C.DATE_END - off] = data.dateEnd || ''; anyChange = true; }
+  if (data.dateEnd !== undefined) {
+    if (!dateOk_(data.dateEnd)) throw new Error('Недопустимый год в дате: ' + data.dateEnd);
+    rowValues[C.DATE_END - off] = data.dateEnd || ''; anyChange = true;
+  }
   if (data.pct     !== undefined) { rowValues[C.PCT      - off] = data.pct     || ''; anyChange = true; }
   if (data.org     !== undefined) { rowValues[C.ORG      - off] = data.org     || ''; anyChange = true; }
   if (data.comment !== undefined) { rowValues[C.COMMENT  - off] = data.comment || ''; anyChange = true; }
