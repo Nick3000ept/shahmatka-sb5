@@ -32,8 +32,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);height:100vh;
 .sep{width:1px;height:16px;background:var(--brd2);flex-shrink:0;}
 .url-input{flex:1;max-width:380px;padding:5px 9px;background:var(--bg3);border:1px solid var(--brd2);border-radius:var(--r);color:var(--ink2);font-family:var(--mono);font-size:11px;outline:none;transition:border-color .15s;}
 .admin-only{display:none!important;}
-.admin-sk-only{display:none!important;}
-body.sk-mode .sk-hidden{display:none!important;}
 .url-input:focus{border-color:var(--acc);color:var(--ink);}
 .url-input::placeholder{color:var(--ink3);}
 .btn{padding:4px 11px;border-radius:var(--r);border:1px solid var(--brd2);background:var(--bg3);color:var(--ink2);font-family:var(--sans);font-size:11px;font-weight:500;cursor:pointer;transition:all .12s;white-space:nowrap;display:flex;align-items:center;gap:5px;}
@@ -517,6 +515,8 @@ td.cell.s-empty .c-bar-fill{background:#94a3b8;}
     <span class="logo-badge">СБ5</span>
     Шахматка
   </div>
+  <!-- Только при входе через портал на *.acons.space (applyPortalUI, 2026-09-16) -->
+  <a class="btn" id="portal-back" href="https://acons.space" style="display:none;text-decoration:none;" title="Вернуться к списку инструментов">← Портал acons.space</a>
   <div class="sep"></div>
   <button class="btn" onclick="reload()" title="Обновить">↻</button>
   <div class="sep"></div>
@@ -529,6 +529,7 @@ td.cell.s-empty .c-bar-fill{background:#94a3b8;}
     <div class="sep"></div>
     <span class="fl" style="font-size:11px;color:var(--ink3);">👤</span>
     <input class="url-input" id="author-inp" placeholder="Ваше имя…" style="width:130px;" oninput="saveAuthor(this.value)">
+    <button class="btn" id="portal-logout" style="display:none" onclick="portalLogout()" title="Забыть вход через портал и вернуться на acons.space">Выйти</button>
     <div class="sep"></div>
     <button class="btn" id="an-btn" onclick="toggleAnalytics()" style="font-size:11px;">📊 Аналитика</button>
     <button class="btn" id="task-btn" onclick="toggleTasks()" style="font-size:11px;">📌 Поручения</button>
@@ -597,12 +598,12 @@ td.cell.s-empty .c-bar-fill{background:#94a3b8;}
   <span class="ms-info" id="ms-info">0 ячеек</span>
   <div class="ms-sep"></div>
   <span class="ms-lbl">Статус:</span>
-  <span class="ms-sc g sk-hidden" id="msc-done"     onclick="msDraftStatus('s-done')">✓ Окончены</span>
-  <span class="ms-sc y sk-hidden" id="msc-started"  onclick="msDraftStatus('s-started')">▶ Начаты</span>
-  <span class="ms-sc r sk-hidden" id="msc-remarks"  onclick="msDraftStatus('s-remarks')">✕ Замечания</span>
-  <span class="ms-sc admin-sk-only" style="color:#f97316" id="msc-front" onclick="msDraftStatus('s-front')">⬛ Фронт открыт</span>
-  <span class="ms-sc sk-hidden" style="color:#3b82f6" id="msc-onsite" onclick="msDraftStatus('s-onsite')">⬡ На площадке</span>
-  <span class="ms-sc sk-hidden"   id="msc-empty"    onclick="msDraftStatus('s-empty')">— Сброс</span>
+  <span class="ms-sc g" id="msc-done"     onclick="msDraftStatus('s-done')">✓ Окончены</span>
+  <span class="ms-sc y" id="msc-started"  onclick="msDraftStatus('s-started')">▶ Начаты</span>
+  <span class="ms-sc r" id="msc-remarks"  onclick="msDraftStatus('s-remarks')">✕ Замечания</span>
+  <span class="ms-sc admin-only" style="color:#f97316" id="msc-front" onclick="msDraftStatus('s-front')">⬛ Фронт открыт</span>
+  <span class="ms-sc" style="color:#3b82f6" id="msc-onsite" onclick="msDraftStatus('s-onsite')">⬡ На площадке</span>
+  <span class="ms-sc"   id="msc-empty"    onclick="msDraftStatus('s-empty')">— Сброс</span>
   <div class="ms-sep"></div>
   <span class="ms-lbl">Дата:</span>
   <input type="date" class="ms-date" id="ms-date" oninput="msUpdatePreview()">
@@ -660,12 +661,12 @@ td.cell.s-empty .c-bar-fill{background:#94a3b8;}
     <div class="fg">
       <div class="fg-lbl">Статус</div>
       <div class="scg">
-        <button class="sc sk-hidden" id="sc-started"  onclick="selSt('s-started')"><span class="sc-dot" style="background:var(--yellow)"></span>СМР начаты</button>
-        <button class="sc sk-hidden" id="sc-done"     onclick="selSt('s-done')"><span class="sc-dot" style="background:var(--green)"></span>СМР окончены</button>
-        <button class="sc admin-sk-only" id="sc-front" onclick="selSt('s-front')" style="border:2px solid #f97316"><span class="sc-dot" style="background:#f97316"></span>Фронт открыт</button>
-        <button class="sc sk-hidden" id="sc-onsite"   onclick="selSt('s-onsite')"><span class="sc-dot" style="background:#3b82f6"></span>На площадке</button>
-        <button class="sc sk-hidden" id="sc-remarks"  onclick="selSt('s-remarks')"><span class="sc-dot" style="background:var(--red)"></span>Замечания</button>
-        <button class="sc full sk-hidden" id="sc-empty" onclick="selSt('s-empty')"><span class="sc-dot" style="background:var(--ink3)"></span>Нет данных</button>
+        <button class="sc" id="sc-started"  onclick="selSt('s-started')"><span class="sc-dot" style="background:var(--yellow)"></span>СМР начаты</button>
+        <button class="sc" id="sc-done"     onclick="selSt('s-done')"><span class="sc-dot" style="background:var(--green)"></span>СМР окончены</button>
+        <button class="sc admin-only" id="sc-front" onclick="selSt('s-front')" style="border:2px solid #f97316"><span class="sc-dot" style="background:#f97316"></span>Фронт открыт</button>
+        <button class="sc" id="sc-onsite"   onclick="selSt('s-onsite')"><span class="sc-dot" style="background:#3b82f6"></span>На площадке</button>
+        <button class="sc" id="sc-remarks"  onclick="selSt('s-remarks')"><span class="sc-dot" style="background:var(--red)"></span>Замечания</button>
+        <button class="sc full" id="sc-empty" onclick="selSt('s-empty')"><span class="sc-dot" style="background:var(--ink3)"></span>Нет данных</button>
       </div>
     </div>
     <div class="fg" id="fg-vol" style="display:none">
@@ -678,7 +679,7 @@ td.cell.s-empty .c-bar-fill{background:#94a3b8;}
       </div>
       <div class="vol-warn" id="vol-warn" style="display:none">Факт больше объёма итого — проверьте объём</div>
     </div>
-    <div class="fg sk-hidden">
+    <div class="fg">
       <div class="fg-lbl">Процент готовности</div>
       <div class="pct-row">
         <input type="range" class="pct-sl" id="pct-sl" min="0" max="100" step="5" value="0" oninput="updPct(this.value)">
@@ -700,7 +701,7 @@ td.cell.s-empty .c-bar-fill{background:#94a3b8;}
         <option value="">— Без изменений —</option>
       </select>
     </div>
-    <div class="fg sk-hidden">
+    <div class="fg">
       <div class="fg-lbl">Дата окончания</div>
       <input type="date" class="date-inp" id="p-date" onchange="_dateTouched=true;" oninput="_dateTouched=true;">
     </div>
@@ -719,12 +720,25 @@ td.cell.s-empty .c-bar-fill{background:#94a3b8;}
 <div class="pwd-overlay" id="pwd-overlay">
   <div class="pwd-box">
     <div class="pwd-title">Вход</div>
-    <div class="pwd-sub">Введите пароль чтобы редактировать данные</div>
+    <div class="pwd-sub" id="pwd-sub">Введите пароль чтобы редактировать данные</div>
     <input type="password" class="pwd-inp" id="pwd-inp" placeholder="Пароль" onkeydown="if(event.key==='Enter')submitPwd()">
     <div class="pwd-err" id="pwd-err"></div>
     <div class="pwd-btns">
       <button class="btn" onclick="closePwdModal()">Отмена</button>
-      <button class="btn btn-pri" onclick="submitPwd()">Войти</button>
+      <button class="btn btn-pri" id="pwd-ok" onclick="submitPwd()">Войти</button>
+      <!-- Только на *.acons.space (applyPortalUI): вместо формы пароля — переход на портал -->
+      <a class="btn btn-pri" id="pwd-portal" href="https://acons.space/?next=sb5" style="display:none;text-decoration:none;">Войти через портал</a>
+    </div>
+  </div>
+</div>
+
+<!-- Только *.acons.space: владелец закрыл просмотр без входа на портале (checkGuestAccess, 2026-09-16) -->
+<div class="pwd-overlay" id="guest-closed" style="background:var(--bg);z-index:900;">
+  <div class="pwd-box">
+    <div class="pwd-title">Шахматка СБ5</div>
+    <div class="pwd-sub">Просмотр без входа закрыт. Войдите через портал acons.space под своей учётной записью</div>
+    <div class="pwd-btns">
+      <a class="btn btn-pri" href="https://acons.space/?next=sb5" style="text-decoration:none;">Войти через портал</a>
     </div>
   </div>
 </div>
@@ -784,13 +798,65 @@ function applyZoom(){
 
 var BASE='', ROWS=[], MOD={};
 var AUTHOR='';
+// ─── ВХОД ЧЕРЕЗ ПОРТАЛ acons.space (2026-09-16, как СБ3 от 2026-09-15; acons-server/TZ.md §15) ───
+// Всё новое срабатывает ТОЛЬКО при PORTAL_MODE (адрес *.acons.space). На github.io
+// PORTAL_MODE=false: пропуск не читается, pp не уходит (portalPP() → undefined, а JSON.stringify
+// такие поля выбрасывает), формы и роли — как раньше.
+// Портал открывает шахматку ссылкой ?p=<пропуск>: кладём его в localStorage sb5_pass и убираем
+// из адреса (?contractor= не трогаем). Пропуск с ролью «администратор» = режим администратора
+// без пароля; во все админские запросы и в сохранение отметок добавляется поле pp, автор — ФИО
+// из пропуска (бэк ставит его сам). Роль «просмотр» — только чтение. Сами на портал не
+// перенаправляем (переход — только по кнопке), поэтому петли переходов нет.
+function isPortalHost(h){ return /(^|\.)acons\.space$/i.test(String(h||'')); }
+// Содержимое пропуска {l: логин, n: ФИО, a: админка, r: роль, exp, iat} — только для страницы;
+// подпись и актуальную роль проверяет бэк.
+function passInfo(p){
+  try{
+    var s=String(p||'').split('.')[0].replace(/-/g,'+').replace(/_/g,'/');
+    while(s.length%4) s+='=';
+    return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(s),function(c){return c.charCodeAt(0);})));
+  }catch(ex){ return null; }
+}
+function passUsable(info,nowSec){ return !!(info&&info.l&&info.a==='sb5'&&info.exp&&info.exp>nowSec); }
+function passIsAdmin(info){ return String((info&&info.r)||'').trim().toLowerCase()==='администратор'; }
+function passNeedsRenew(info,nowSec){ return !(info&&info.iat&&nowSec-info.iat<86400); }
+// Строка запроса без ?p= (остальные параметры, в т.ч. contractor, остаются); null — p не было
+function searchWithoutPass(search){
+  var q=new URLSearchParams(search||'');
+  if(!q.has('p')) return null;
+  q.delete('p');
+  var rest=q.toString();
+  return rest?'?'+rest:'';
+}
+var PORTAL_MODE=isPortalHost(location.hostname);
+var PORTAL_URL='https://acons.space';
+var PORTAL_PASS_KEY='sb5_pass';
+var PORTAL_PASS='';
+function forgetPortalPass(){ PORTAL_PASS=''; try{localStorage.removeItem(PORTAL_PASS_KEY);}catch(ex){} }
+(function takePassFromUrl(){
+  if(!PORTAL_MODE) return;
+  try{
+    var p=new URLSearchParams(location.search).get('p');
+    if(p){
+      try{localStorage.setItem(PORTAL_PASS_KEY,p);}catch(ex){}
+      history.replaceState(null,'',location.pathname+(searchWithoutPass(location.search)||'')+location.hash);
+    }
+  }catch(ex){}
+  try{PORTAL_PASS=localStorage.getItem(PORTAL_PASS_KEY)||'';}catch(ex){PORTAL_PASS='';}
+  if(PORTAL_PASS&&!passUsable(passInfo(PORTAL_PASS),Date.now()/1000)) forgetPortalPass();
+})();
+
 // ─── РОЛИ ─────────────────────────────────────────────────────────
+// Роль «СК» (стройконтроль) убрана решением владельца 2026-09-15.
 var CONTRACTOR=new URLSearchParams(window.location.search).get('contractor')||'';
-var IS_ADMIN=sessionStorage.getItem('sb5_admin')==='1';
-var IS_SK=sessionStorage.getItem('sb5_sk')==='1';
-// Пароль админа хранится на время вкладки — нужен для защищённых POST (поручения)
-var ADMIN_PWD=sessionStorage.getItem('sb5_admin_pwd')||'';
+var IS_ADMIN=PORTAL_MODE?(!!PORTAL_PASS&&passIsAdmin(passInfo(PORTAL_PASS))):sessionStorage.getItem('sb5_admin')==='1';
+// Пароль админа хранится на время вкладки — нужен для защищённых POST (поручения); на *.acons.space — пропуск
+var ADMIN_PWD=PORTAL_MODE?'':(sessionStorage.getItem('sb5_admin_pwd')||'');
 var _pwdCallback=null;
+// Пропуск для админских запросов: только портал + администратор; иначе undefined (поле не уходит)
+function portalPP(){ return (PORTAL_MODE&&IS_ADMIN&&PORTAL_PASS)?PORTAL_PASS:undefined; }
+// Есть чем подтвердить права администратора: пароль (github.io) или пропуск (портал)
+function hasAdminAuth(){ return PORTAL_MODE?(IS_ADMIN&&!!PORTAL_PASS):!!ADMIN_PWD; }
 // Сегодня в миллисекундах (без времени)
 var _t=new Date(); _t.setHours(0,0,0,0);
 var TODAY_MS=_t.getTime();
@@ -926,10 +992,20 @@ window.onload=function(){
     if(Object.keys(MOD).length>0){e.preventDefault();e.returnValue='';}
   });
   applyRoleUI();
-  loadPresets();
-  loadSysPresets();
-  loadData();
-  setTimeout(loadContractors, 1500);
+  applyPortalUI();
+  // *.acons.space: пропуск раз в сутки меняется на свежий; вкладку могут не закрывать — проверка раз в час
+  if(PORTAL_MODE&&PORTAL_PASS){
+    renewPass();
+    setInterval(function(){ if(PORTAL_PASS) renewPass(); },3600000);
+  }
+  // *.acons.space без пропуска и без ?contractor=: сначала спросить портал, открыт ли просмотр без входа
+  checkGuestAccess().then(function(open){
+    if(!open) return;
+    loadPresets();
+    loadSysPresets();
+    loadData();
+    setTimeout(loadContractors, 1500);
+  });
   document.addEventListener('keydown',function(e){
     if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();saveAll();}
     if(e.key==='Escape'){clearSel(true);closePanel();closeClPanel();}
@@ -1323,11 +1399,11 @@ function savePreset(){
 }
 // Общий пресет: пишется на бэк (лист «Пресеты»), то же имя — обновление у всех
 async function saveSysPreset(name){
-  if(!ADMIN_PWD){ openPwdModal(function(){saveSysPreset(name);}); return; }
+  if(!hasAdminAuth()){ openPwdModal(function(){saveSysPreset(name);}); return; }
   var cfg=currentFilterCfg();
   try{
     var j=await fetchJson(BASE,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
-      action:'saveSysPreset', pwd:ADMIN_PWD, name:name, cfg:cfg
+      action:'saveSysPreset', pwd:ADMIN_PWD, pp:portalPP(), name:name, cfg:cfg
     })});
     if(j&&j.ok){
       SYS_PRESETS[name]=cfg;
@@ -1343,10 +1419,10 @@ async function saveSysPreset(name){
 async function deleteSysPreset(name){
   if(!IS_ADMIN) return;
   if(!confirm('Удалить общий пресет «'+name+'» у всех пользователей?')) return;
-  if(!ADMIN_PWD){ openPwdModal(function(){deleteSysPreset(name);}); return; }
+  if(!hasAdminAuth()){ openPwdModal(function(){deleteSysPreset(name);}); return; }
   try{
     var j=await fetchJson(BASE,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
-      action:'deleteSysPreset', pwd:ADMIN_PWD, name:name
+      action:'deleteSysPreset', pwd:ADMIN_PWD, pp:portalPP(), name:name
     })});
     if(j&&j.ok){
       delete SYS_PRESETS[name];
@@ -1849,7 +1925,7 @@ function renderUnsaved(){
 
 // ─── SELECTION ────────────────────────────────────────────────────
 function cellClick(ev, rowId){
-  if(!IS_ADMIN&&!IS_SK){
+  if(!IS_ADMIN){
     var row=ROWS_MAP.get(rowId);
     if(CONTRACTOR){
       var org=row?(row.org||''):'';
@@ -2172,9 +2248,9 @@ function openPanel(rowId, anchorEl){
   renderContractorSelect(contractor);
 
   // Объём: поле факта — только при выборе одной ячейки, только если объём задан,
-  // и только тем, кто вправе вносить факт (администратор и подрядчик, не стройконтроль)
+  // и только тем, кто вправе вносить факт (администратор и подрядчик)
   var volBlock=document.getElementById('fg-vol');
-  var canFact=(IS_ADMIN||!!CONTRACTOR)&&!(IS_SK&&!IS_ADMIN);
+  var canFact=IS_ADMIN||!!CONTRACTOR;
   _volTotal=row.volume||'';
   var volShow=!isMulti&&canFact&&volNum(_volTotal)!==null;
   volBlock.style.display=volShow?'':'none';
@@ -2275,11 +2351,6 @@ function setPct(v){
 }
 
 function savePanel(){
-  // СК может сохранять только статус "Фронт открыт" (если статус вообще выбран)
-  if(IS_SK&&!IS_ADMIN&&_statusTouched&&CUR_ST!=='s-front'){
-    toast('Стройконтроль может устанавливать только статус «Фронт открыт»','err',3000);
-    return;
-  }
   var pctSlider=parseInt(document.getElementById('pct-sl').value)||0;
   var pctVal=(pctSlider/100).toFixed(2).replace('.',',');
   var factRaw=document.getElementById('vol-fact').value.trim();
@@ -2359,7 +2430,7 @@ async function batchSave(rowIds){
     // Всегда один пакетный запрос saveAll через fetchJson (3 попытки с паузой).
     // Раньше до 20 строк слали параллельными saveRow — Google обрывал часть
     // запросов ("Failed to fetch"), сохранялось с 3-4 раза.
-    var j=await fetchJson(BASE,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'saveAll',rows:payload})});
+    var j=await fetchJson(BASE,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'saveAll',rows:payload,pp:portalPP()})});
     if(!j.ok) throw new Error(j.error||'Ошибка');
     if(j.saved!==undefined&&j.requested!==undefined&&j.saved<j.requested){
       toast('Внимание: '+(j.requested-j.saved)+' строк не найдено в таблице — проверьте данные','err',7000);
@@ -2417,16 +2488,108 @@ async function saveAll(){
 // ─── ROLES / PASSWORD ─────────────────────────────────────────────
 function applyAdminUI(){ applyRoleUI(); }
 function applyRoleUI(){
-  document.querySelectorAll('.admin-only').forEach(function(el){
+  // data-admin-only запоминает элемент: без него после снятия класса вернуть скрытие было бы
+  // нельзя (нужно при выходе из режима администратора на *.acons.space)
+  document.querySelectorAll('.admin-only,[data-admin-only]').forEach(function(el){
+    el.setAttribute('data-admin-only','1');
     el.classList.toggle('admin-only', !IS_ADMIN);
   });
-  document.querySelectorAll('.admin-sk-only').forEach(function(el){
-    el.classList.toggle('admin-sk-only', !IS_ADMIN && !IS_SK);
-  });
-  document.body.classList.toggle('sk-mode', IS_SK && !IS_ADMIN);
+}
+
+// ─── ПОРТАЛ acons.space: интерфейс (только PORTAL_MODE) ───────────
+// Ссылка «← Портал» и «Выйти» — только при пропуске; у администратора по пропуску имя автора =
+// ФИО из пропуска (поле только для чтения); окно входа — «Войти через портал» без поля пароля.
+function applyPortalUI(){
+  if(!PORTAL_MODE) return;
+  var has=!!PORTAL_PASS, adm=has&&IS_ADMIN;
+  var back=document.getElementById('portal-back'); if(back) back.style.display=has?'':'none';
+  var out=document.getElementById('portal-logout'); if(out) out.style.display=has?'':'none';
+  var ai=document.getElementById('author-inp');
+  if(adm){
+    var info=passInfo(PORTAL_PASS)||{};
+    AUTHOR=String(info.n||info.l||'').trim();
+    if(ai){ ai.value=AUTHOR; ai.readOnly=true; ai.title='Имя из учётной записи портала acons.space'; }
+  }else{
+    AUTHOR=localStorage.getItem('sb5_author')||'';
+    if(ai){ ai.value=AUTHOR; ai.readOnly=false; ai.title=''; }
+  }
+  var sub=document.getElementById('pwd-sub'); if(sub) sub.textContent='На этом адресе вход для редактирования — через портал единого входа acons.space';
+  var inp=document.getElementById('pwd-inp'); if(inp) inp.style.display='none';
+  var ok=document.getElementById('pwd-ok'); if(ok) ok.style.display='none';
+  var pb=document.getElementById('pwd-portal'); if(pb) pb.style.display='';
+}
+// Ответ бэка с bad_pass (пропуск не принят: срок, подпись, роль снята) — только *.acons.space
+function portalSeen(j){
+  if(!PORTAL_MODE||!j||j.error!=='bad_pass') return;
+  j.error='пропуск портала не принят';
+  j.badPass=true;
+  portalPassRejected();
+}
+// Забыть пропуск, выйти из режима администратора, сообщить. На портал сами не уходим.
+function portalPassRejected(){
+  if(!PORTAL_MODE) return;
+  var wasAdmin=IS_ADMIN;
+  forgetPortalPass();
+  IS_ADMIN=false;
+  applyRoleUI();
+  applyPortalUI();
+  if(typeof renderPresetChips==='function') renderPresetChips();
+  if(TASKS_PANEL_OPEN) renderTasksList();
+  if(ROWS.length) render();
+  toast('Вход через портал больше не действует'+(wasAdmin?' — режим администратора выключен':'')+
+    '. Чтобы редактировать, войдите через портал заново.','err',9000);
+}
+// Решение 2026-09-14 (как в Отделке/КЛАД/СБ3): пропуск живёт 30 дней и раз в сутки меняется на свежий.
+// Не вышло по сети — не страшно, попробуем через час; снятую роль бэк всё равно увидит сам.
+async function renewPass(){
+  if(!PORTAL_MODE||!PORTAL_PASS||!BASE) return;
+  var info=passInfo(PORTAL_PASS);
+  if(!passNeedsRenew(info,Date.now()/1000)) return;
+  try{
+    var r=await fetch(BASE+'?action=portalRenew&pp='+encodeURIComponent(PORTAL_PASS)+'&t='+Date.now());
+    var j=JSON.parse(await r.text());
+    if(j&&j.error==='bad_pass'){ portalPassRejected(); return; }
+    var ni=(j&&j.ok&&j.p)?passInfo(j.p):null;
+    if(!ni||String(ni.l||'').toLowerCase()!==String((info&&info.l)||'').toLowerCase()) return;
+    PORTAL_PASS=j.p;
+    try{localStorage.setItem(PORTAL_PASS_KEY,j.p);}catch(ex){}
+    var adm=passIsAdmin(ni);
+    if(adm!==IS_ADMIN){ IS_ADMIN=adm; applyRoleUI(); if(ROWS.length) render(); }
+    applyPortalUI();
+  }catch(ex){ /* без повторов: следующая попытка через час */ }
+}
+function portalLogout(){
+  forgetPortalPass();
+  location.href=PORTAL_URL;
+}
+// ─── ГОСТЯМ БЕЗ ВХОДА (2026-09-16, переключатель владельца на портале, вкладка «Инструменты») ───
+// Только *.acons.space. Спрашиваем сервер портала лишь у гостя: без пропуска и без ?contractor=
+// (ссылки подрядчиков — старый вход, выключается отдельно). Закрываем ТОЛЬКО по явному ответу
+// {ok:true, data:{guest:''}}; сервер не ответил, ошибся, ответил не тем — показываем как раньше
+// (решение 2026-09-16: сбой связи не должен запирать людей). На github.io не участвует.
+var GUEST_API='/api/portal/guest?app=sb5';
+function guestCheckNeeded(portal,pass,contractor){ return !!portal&&!pass&&!contractor; }
+function guestClosedAnswer(j){ return !!(j&&j.ok===true&&j.data&&j.data.guest===''); }
+async function checkGuestAccess(){
+  if(!guestCheckNeeded(PORTAL_MODE,PORTAL_PASS,CONTRACTOR)) return true;
+  var closed=false;
+  try{
+    var ctl=typeof AbortController==='function'?new AbortController():null;
+    var tm=ctl?setTimeout(function(){ctl.abort();},5000):0;
+    var r=await fetch(GUEST_API+'&t='+Date.now(),ctl?{signal:ctl.signal}:undefined);
+    if(tm) clearTimeout(tm);
+    closed=r.ok&&guestClosedAnswer(JSON.parse(await r.text()));
+  }catch(ex){ closed=false; }
+  if(closed) document.getElementById('guest-closed').classList.add('on');
+  return !closed;
 }
 
 function openPwdModal(callback){
+  // *.acons.space с пропуском без роли «администратор»: портал вернул бы тот же пропуск — не зовём
+  if(PORTAL_MODE&&PORTAL_PASS){
+    toast('У вашей учётной записи портала в СБ5 роль «просмотр» — редактирование недоступно','inf',5000);
+    return;
+  }
   _pwdCallback=callback;
   document.getElementById('pwd-inp').value='';
   document.getElementById('pwd-err').textContent='';
@@ -2438,22 +2601,20 @@ function closePwdModal(){
   _pwdCallback=null;
 }
 async function submitPwd(){
+  if(PORTAL_MODE) return; // на *.acons.space пароль не спрашиваем — только вход через портал
   var pwd=document.getElementById('pwd-inp').value;
   if(!pwd) return;
   document.getElementById('pwd-err').textContent='';
   try{
     var r=await fetch(BASE+'?action=checkPassword&pwd='+encodeURIComponent(pwd)+'&t='+Date.now());
     var j=JSON.parse(await r.text());
-    if(j.ok){
-      if(j.role==='sk'){
-        IS_SK=true;
-        sessionStorage.setItem('sb5_sk','1');
-      } else {
-        IS_ADMIN=true;
-        sessionStorage.setItem('sb5_admin','1');
-        ADMIN_PWD=pwd;
-        sessionStorage.setItem('sb5_admin_pwd',pwd);
-      }
+    // Роль СК убрана (2026-09-15): режим администратора — только при role==='admin'
+    // (старый бэк на пароль СК отвечал role:'sk' — такой ответ теперь считается неверным паролем)
+    if(j.ok&&j.role==='admin'){
+      IS_ADMIN=true;
+      sessionStorage.setItem('sb5_admin','1');
+      ADMIN_PWD=pwd;
+      sessionStorage.setItem('sb5_admin_pwd',pwd);
       applyRoleUI();
       closePwdModal();
       render();
@@ -2798,7 +2959,7 @@ function closeProtocol(){
   if(b) b.classList.remove('btn-pri');
 }
 function protoAuthor(){
-  return AUTHOR||CONTRACTOR||(IS_ADMIN?'Администратор':IS_SK?'СК':'');
+  return AUTHOR||CONTRACTOR||(IS_ADMIN?'Администратор':'');
 }
 function fillProtoWorkSelect(){
   var sel=document.getElementById('proto-work');
@@ -2877,10 +3038,11 @@ async function addProtocol(){
   var btn=document.getElementById('proto-add-btn');
   btn.disabled=true;btn.textContent='Сохранение…';
   try{
-    var r=await fetch(BASE,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'addProtocol',author:author,text:text,work:work})});
+    var r=await fetch(BASE,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'addProtocol',author:author,text:text,work:work,pp:portalPP()})});
     if(!r.ok) throw new Error('HTTP '+r.status);
     var t=await r.text();
     var j; try{j=JSON.parse(t);}catch(ex2){j={ok:true};}
+    portalSeen(j);
     if(!j.ok) throw new Error(j.error||'Ошибка');
     ta.value='';
     toast('Запись добавлена','ok');
@@ -2908,7 +3070,9 @@ async function fetchJson(url,opts,tries){
       if(!r.ok) throw new Error('HTTP '+r.status);
       var t=await r.text();
       if(t.trim()[0]==='<') throw new Error('Скрипт вернул страницу вместо данных — переразверните деплой');
-      return JSON.parse(t);
+      var _j=JSON.parse(t);
+      portalSeen(_j); // только *.acons.space: пропуск не принят → выход из режима администратора
+      return _j;
     }catch(ex){
       lastErr=ex;
       if(i<tries-1) await new Promise(function(res){setTimeout(res,1200*(i+1));});
@@ -2921,7 +3085,7 @@ function toggleTasks(){ TASKS_PANEL_OPEN?closeTasks():openTasks(); }
 function openTasks(){
   if(!BASE){ toast('Сначала подключитесь','err'); return; }
   // Админу нужен сохранённый пароль для защищённых запросов; у просмотра пароль не спрашиваем
-  if(IS_ADMIN&&!ADMIN_PWD){ openPwdModal(openTasks); return; }
+  if(IS_ADMIN&&!hasAdminAuth()){ openPwdModal(openTasks); return; }
   closeAnalytics(); closeProtocol(); // панели справа — открыта может быть только одна
   TASKS_PANEL_OPEN=true;
   document.getElementById('task-panel').classList.add('on');
@@ -3033,7 +3197,7 @@ async function toggleDoneList(){
 // «Добавить»: поручение сразу появляется в списке, форма очищается под следующее,
 // запрос уходит фоном; при ошибке — запись убирается, текст возвращается в форму.
 async function addTaskFromForm(){
-  if(!ADMIN_PWD){ openPwdModal(addTaskFromForm); return; }
+  if(!hasAdminAuth()){ openPwdModal(addTaskFromForm); return; }
   var themeEl=document.getElementById('tk-theme'), descEl=document.getElementById('tk-descr');
   var text=themeEl.value.trim(), comm=descEl.value.trim();
   if(!text){ toast('Впишите тему поручения','inf'); themeEl.focus(); return; }
@@ -3046,7 +3210,7 @@ async function addTaskFromForm(){
   themeEl.value=''; descEl.value=''; autoGrowComm(descEl); themeEl.focus();
   try{
     var j=await fetchJson(BASE,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
-      action:'addTasks', pwd:ADMIN_PWD, author:AUTHOR, tasks:[{org:'', text:text, due:'', comment:comm}]
+      action:'addTasks', pwd:ADMIN_PWD, pp:portalPP(), author:AUTHOR, tasks:[{org:'', text:text, due:'', comment:comm}]
     })});
     if(j.error) throw new Error(j.error);
     loadTasks(); // фоновое обновление подменит временную запись настоящей (с серверным id)
@@ -3060,11 +3224,11 @@ async function addTaskFromForm(){
 }
 
 async function markTaskDone(id){
-  if(!ADMIN_PWD){ openPwdModal(function(){markTaskDone(id);}); return; }
+  if(!hasAdminAuth()){ openPwdModal(function(){markTaskDone(id);}); return; }
   if(id.indexOf('tmp')===0){ toast('Поручение ещё сохраняется — секунду','inf'); return; }
   try{
     var j=await fetchJson(BASE,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
-      action:'updateTask', pwd:ADMIN_PWD, id:id, status:'выполнено'
+      action:'updateTask', pwd:ADMIN_PWD, pp:portalPP(), id:id, status:'выполнено'
     })});
     if(j.error){ toast(j.error,'err'); return; }
     // Переносим локально из открытых в выполненные — без перезагрузки списка
@@ -3086,10 +3250,10 @@ async function saveTaskComment(id, val){
   val=String(val).trim();
   var t=TASKS.filter(function(x){return x.id===id;})[0];
   if(t&&String(t.comment||'').trim()===val) return; // не изменился — не дёргаем бэк
-  if(!ADMIN_PWD){ openPwdModal(function(){saveTaskComment(id, val);}); return; }
+  if(!hasAdminAuth()){ openPwdModal(function(){saveTaskComment(id, val);}); return; }
   try{
     var j=await fetchJson(BASE,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
-      action:'updateTask', pwd:ADMIN_PWD, id:id, comment:val
+      action:'updateTask', pwd:ADMIN_PWD, pp:portalPP(), id:id, comment:val
     })});
     if(j.error){ toast(j.error,'err'); return; }
     if(t) t.comment=val;
@@ -3101,7 +3265,7 @@ async function saveTaskComment(id, val){
 // Приоритет: обычный <-> «Высокий»; высокие поднимаются наверх списка.
 // Список меняется сразу, запрос уходит фоном; при ошибке — откат.
 async function toggleTaskPriority(id){
-  if(!ADMIN_PWD){ openPwdModal(function(){toggleTaskPriority(id);}); return; }
+  if(!hasAdminAuth()){ openPwdModal(function(){toggleTaskPriority(id);}); return; }
   if(id.indexOf('tmp')===0){ toast('Поручение ещё сохраняется — секунду','inf'); return; }
   var t=TASKS.filter(function(x){return x.id===id;})[0];
   if(!t) return;
@@ -3112,7 +3276,7 @@ async function toggleTaskPriority(id){
   renderTasksList();
   try{
     var j=await fetchJson(BASE,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
-      action:'updateTask', pwd:ADMIN_PWD, id:id, priority:newPri
+      action:'updateTask', pwd:ADMIN_PWD, pp:portalPP(), id:id, priority:newPri
     })});
     if(j.error) throw new Error(j.error);
   }catch(ex){
